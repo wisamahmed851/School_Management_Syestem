@@ -1,0 +1,1349 @@
+{
+  "info": {
+    "name": "School_Management_System",
+    "_postman_id": "sms-v4-role-split-2026",
+    "description": "School Management System — three top-level folders split by role: Admin (AdminJwtAuthGuard), Teacher (@Roles('teacher')), Parent (@Roles('parent')).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",            "value": "http://localhost:3000", "type": "string" },
+    { "key": "admin_token",         "value": "", "type": "string" },
+    { "key": "teacher_token",       "value": "", "type": "string" },
+    { "key": "parent_token",        "value": "", "type": "string" },
+    { "key": "admin_id",            "value": "1", "type": "string" },
+    { "key": "user_id",             "value": "1", "type": "string" },
+    { "key": "teacher_id",          "value": "1", "type": "string" },
+    { "key": "guardian_id",         "value": "1", "type": "string" },
+    { "key": "class_id",            "value": "1", "type": "string" },
+    { "key": "student_id",          "value": "1", "type": "string" },
+    { "key": "subject_id",          "value": "1", "type": "string" },
+    { "key": "class_subject_id",    "value": "1", "type": "string" },
+    { "key": "attendance_id",       "value": "1", "type": "string" },
+    { "key": "assignment_id",       "value": "1", "type": "string" },
+    { "key": "submission_id",       "value": "1", "type": "string" },
+    { "key": "exam_id",             "value": "1", "type": "string" },
+    { "key": "result_id",           "value": "1", "type": "string" },
+    { "key": "role_id",             "value": "1", "type": "string" },
+    { "key": "permission_id",       "value": "1", "type": "string" },
+    { "key": "role_permission_id",  "value": "1", "type": "string" },
+    { "key": "admin_role_id",       "value": "1", "type": "string" },
+    { "key": "user_role_id",        "value": "1", "type": "string" },
+    { "key": "admin_permission_id", "value": "1", "type": "string" },
+    { "key": "user_permission_id",  "value": "1", "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "Admin",
+      "item": [
+
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+                "const j = pm.response.json();",
+                "if (j && j.access_token) { pm.collectionVariables.set('admin_token', j.access_token); console.log('admin_token saved'); }"
+              ]}}],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@gmail.com\",\n  \"password\": \"123456789\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/login", "host": ["{{base_url}}"], "path": ["admin","login"] },
+                "description": "Authenticate as admin. access_token auto-saved to {{admin_token}}."
+              }
+            },
+            {
+              "name": "Get Profile",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/profile", "host": ["{{base_url}}"], "path": ["admin","profile"] },
+                "description": "Return the authenticated admin's profile."
+              }
+            },
+            {
+              "name": "Change Password",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"oldPassword\": \"123456789\",\n  \"newPassword\": \"NewAdmin@99\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/change-password", "host": ["{{base_url}}"], "path": ["admin","change-password"] },
+                "description": "Change the authenticated admin's password."
+              }
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "" },
+                "url": { "raw": "{{base_url}}/admin/logout", "host": ["{{base_url}}"], "path": ["admin","logout"] },
+                "description": "Invalidate the admin access token."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Admins",
+          "item": [
+            {
+              "name": "Create Admin",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "formdata", "formdata": [
+                  { "key": "name",     "value": "Jane Manager",           "type": "text" },
+                  { "key": "email",    "value": "jane.manager@school.com","type": "text" },
+                  { "key": "password", "value": "Secure@1234",            "type": "text" },
+                  { "key": "role_id",  "value": "1",                      "type": "text" },
+                  { "key": "image",    "src": [], "type": "file", "disabled": true }
+                ]},
+                "url": { "raw": "{{base_url}}/admin/store", "host": ["{{base_url}}"], "path": ["admin","store"] },
+                "description": "Create a new admin account. Accepts multipart for optional image."
+              }
+            },
+            {
+              "name": "Get All Admins",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/index", "host": ["{{base_url}}"], "path": ["admin","index"] },
+                "description": "Retrieve all admin accounts."
+              }
+            },
+            {
+              "name": "Get Active Admins",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/active", "host": ["{{base_url}}"], "path": ["admin","active"] },
+                "description": "Retrieve only admins with status = 1."
+              }
+            },
+            {
+              "name": "Get Admin by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/findOne/{{admin_id}}", "host": ["{{base_url}}"], "path": ["admin","findOne","{{admin_id}}"] },
+                "description": "Retrieve a single admin by ID."
+              }
+            },
+            {
+              "name": "Update Admin",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "formdata", "formdata": [
+                  { "key": "name",  "value": "Jane Updated",             "type": "text" },
+                  { "key": "email", "value": "jane.updated@school.com",  "type": "text" },
+                  { "key": "image", "src": [], "type": "file", "disabled": true }
+                ]},
+                "url": { "raw": "{{base_url}}/admin/update/{{admin_id}}", "host": ["{{base_url}}"], "path": ["admin","update","{{admin_id}}"] },
+                "description": "Update admin details. All fields optional."
+              }
+            },
+            {
+              "name": "Delete Admin",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/remove/{{admin_id}}", "host": ["{{base_url}}"], "path": ["admin","remove","{{admin_id}}"] },
+                "description": "Permanently delete an admin record."
+              }
+            },
+            {
+              "name": "Toggle Admin Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/toggleStatus/{{admin_id}}", "host": ["{{base_url}}"], "path": ["admin","toggleStatus","{{admin_id}}"] },
+                "description": "Flip admin active/inactive status."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Users",
+          "item": [
+            {
+              "name": "Create User",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "formdata", "formdata": [
+                  { "key": "name",     "value": "Alice Smith",            "type": "text" },
+                  { "key": "email",    "value": "alice.smith@school.com", "type": "text" },
+                  { "key": "password", "value": "User@1234",              "type": "text" },
+                  { "key": "phone",    "value": "+923001234567",           "type": "text" },
+                  { "key": "address",  "value": "123 Main Street",        "type": "text" },
+                  { "key": "role_id",  "value": "3",                      "type": "text" },
+                  { "key": "image",    "src": [], "type": "file", "disabled": true }
+                ]},
+                "url": { "raw": "{{base_url}}/admin/users/store", "host": ["{{base_url}}"], "path": ["admin","users","store"] },
+                "description": "Admin creates a user account and assigns a role."
+              }
+            },
+            {
+              "name": "Get All Users",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/users/index", "host": ["{{base_url}}"], "path": ["admin","users","index"] },
+                "description": "Retrieve all user accounts."
+              }
+            },
+            {
+              "name": "Get User by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/users/findOne/{{user_id}}", "host": ["{{base_url}}"], "path": ["admin","users","findOne","{{user_id}}"] },
+                "description": "Retrieve a single user by numeric ID."
+              }
+            },
+            {
+              "name": "Find User by Email",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"alice.smith@school.com\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/users/findOneByEmail", "host": ["{{base_url}}"], "path": ["admin","users","findOneByEmail"] },
+                "description": "Lookup a user by email address."
+              }
+            },
+            {
+              "name": "Update User",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "formdata", "formdata": [
+                  { "key": "name",    "value": "Alice Updated",  "type": "text" },
+                  { "key": "phone",   "value": "+923009876543",   "type": "text" },
+                  { "key": "address", "value": "456 New Avenue",  "type": "text" },
+                  { "key": "image",   "src": [], "type": "file", "disabled": true }
+                ]},
+                "url": { "raw": "{{base_url}}/admin/users/update/{{user_id}}", "host": ["{{base_url}}"], "path": ["admin","users","update","{{user_id}}"] },
+                "description": "Update a user's details."
+              }
+            },
+            {
+              "name": "Toggle User Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/users/toggleStatus/{{user_id}}", "host": ["{{base_url}}"], "path": ["admin","users","toggleStatus","{{user_id}}"] },
+                "description": "Flip a user's active/inactive status."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Roles",
+          "item": [
+            {
+              "name": "Create Role",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"teacher\",\n  \"guard\": \"user\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles/store", "host": ["{{base_url}}"], "path": ["admin","roles","store"] },
+                "description": "Create a role. guard: 'admin' | 'user'."
+              }
+            },
+            {
+              "name": "Get All Roles",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles/index", "host": ["{{base_url}}"], "path": ["admin","roles","index"] },
+                "description": "Retrieve all roles."
+              }
+            },
+            {
+              "name": "Get Role by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles/show/{{role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles","show","{{role_id}}"] },
+                "description": "Retrieve a single role."
+              }
+            },
+            {
+              "name": "Update Role",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"senior-teacher\",\n  \"guard\": \"user\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles/update/{{role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles","update","{{role_id}}"] },
+                "description": "Update a role."
+              }
+            },
+            {
+              "name": "Toggle Role Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles/toggleStatus/{{role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles","toggleStatus","{{role_id}}"] },
+                "description": "Toggle role status."
+              }
+            },
+            {
+              "name": "Delete Role",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles/remove/{{role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles","remove","{{role_id}}"] },
+                "description": "Delete a role."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Permissions",
+          "item": [
+            {
+              "name": "Create Permission",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"module\": \"students\",\n  \"action\": \"create\",\n  \"name\": \"students.create\",\n  \"guard\": \"admin\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/permissions/store", "host": ["{{base_url}}"], "path": ["admin","permissions","store"] },
+                "description": "Create a permission."
+              }
+            },
+            {
+              "name": "Get All Permissions",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permissions/index", "host": ["{{base_url}}"], "path": ["admin","permissions","index"] },
+                "description": "Retrieve all permissions."
+              }
+            },
+            {
+              "name": "Get Permission by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permissions/findOne/{{permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permissions","findOne","{{permission_id}}"] },
+                "description": "Retrieve a single permission."
+              }
+            },
+            {
+              "name": "Update Permission",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"module\": \"students\",\n  \"action\": \"update\",\n  \"name\": \"students.update\",\n  \"guard\": \"admin\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/permissions/update/{{permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permissions","update","{{permission_id}}"] },
+                "description": "Update a permission."
+              }
+            },
+            {
+              "name": "Toggle Permission Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permissions/toggleStatus/{{permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permissions","toggleStatus","{{permission_id}}"] },
+                "description": "Toggle permission status."
+              }
+            },
+            {
+              "name": "Delete Permission",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permissions/remove/{{permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permissions","remove","{{permission_id}}"] },
+                "description": "Delete a permission."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Role-Permissions",
+          "item": [
+            {
+              "name": "Assign Permission to Role",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"role_id\": 1,\n  \"permission_id\": 2\n}" },
+                "url": { "raw": "{{base_url}}/admin/role-permissions/store", "host": ["{{base_url}}"], "path": ["admin","role-permissions","store"] },
+                "description": "Link a permission to a role."
+              }
+            },
+            {
+              "name": "Get All Role-Permissions",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/role-permissions/index", "host": ["{{base_url}}"], "path": ["admin","role-permissions","index"] },
+                "description": "All role-permission assignments."
+              }
+            },
+            {
+              "name": "Get Role-Permission by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/role-permissions/findOne/{{role_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","role-permissions","findOne","{{role_permission_id}}"] },
+                "description": "Single role-permission record."
+              }
+            },
+            {
+              "name": "Toggle Role-Permission Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/role-permissions/toggleStatus/{{role_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","role-permissions","toggleStatus","{{role_permission_id}}"] },
+                "description": "Enable/disable a role-permission link."
+              }
+            },
+            {
+              "name": "Update Role-Permission",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"role_id\": 2,\n  \"permission_id\": 4\n}" },
+                "url": { "raw": "{{base_url}}/admin/role-permissions/update/{{role_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","role-permissions","update","{{role_permission_id}}"] },
+                "description": "Update a role-permission assignment."
+              }
+            },
+            {
+              "name": "Delete Role-Permission",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/role-permissions/remove/{{role_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","role-permissions","remove","{{role_permission_id}}"] },
+                "description": "Delete a role-permission assignment."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assign Roles Admin",
+          "item": [
+            {
+              "name": "Assign Role to Admin",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"admin_id\": 1,\n  \"role_id\": 2\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/store", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","store"] },
+                "description": "Assign a role to an admin account."
+              }
+            },
+            {
+              "name": "Get All Admin Role Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/index", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","index"] },
+                "description": "All admin role assignments."
+              }
+            },
+            {
+              "name": "Get Admin Role Assignment by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/findOne/{{admin_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","findOne","{{admin_role_id}}"] },
+                "description": "Single admin role assignment."
+              }
+            },
+            {
+              "name": "Toggle Admin Role Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/toggleStatus/{{admin_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","toggleStatus","{{admin_role_id}}"] },
+                "description": "Toggle admin role assignment status."
+              }
+            },
+            {
+              "name": "Update Admin Role Assignment",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"admin_id\": 1,\n  \"role_id\": 3\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/update/{{admin_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","update","{{admin_role_id}}"] },
+                "description": "Reassign a role to an admin."
+              }
+            },
+            {
+              "name": "Delete Admin Role Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-admin/remove/{{admin_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-admin","remove","{{admin_role_id}}"] },
+                "description": "Remove a role from an admin."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assign Roles User",
+          "item": [
+            {
+              "name": "Assign Role to User",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": 1,\n  \"role_id\": 2\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/store", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","store"] },
+                "description": "Assign an elevated role to a user."
+              }
+            },
+            {
+              "name": "Get All User Role Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/list", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","list"] },
+                "description": "All user role assignments."
+              }
+            },
+            {
+              "name": "Get User Role Assignment by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/findOne/{{user_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","findOne","{{user_role_id}}"] },
+                "description": "Single user role assignment."
+              }
+            },
+            {
+              "name": "Update User Role Assignment",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": 1,\n  \"role_id\": 3\n}" },
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/update/{{user_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","update","{{user_role_id}}"] },
+                "description": "Reassign a role to a user."
+              }
+            },
+            {
+              "name": "Toggle User Role Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/toggleStatus/{{user_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","toggleStatus","{{user_role_id}}"] },
+                "description": "Toggle user role assignment status."
+              }
+            },
+            {
+              "name": "Delete User Role Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/roles-assigning-user/remove/{{user_role_id}}", "host": ["{{base_url}}"], "path": ["admin","roles-assigning-user","remove","{{user_role_id}}"] },
+                "description": "Remove a role from a user."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assign Permissions Admin",
+          "item": [
+            {
+              "name": "Assign Permission to Admin",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"admin_id\": 1,\n  \"permission_id\": 3\n}" },
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/store", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","store"] },
+                "description": "Directly assign a permission to an admin."
+              }
+            },
+            {
+              "name": "Get All Admin Permission Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/index", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","index"] },
+                "description": "All direct admin permission assignments."
+              }
+            },
+            {
+              "name": "Get Admin Permission by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/findOne/{{admin_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","findOne","{{admin_permission_id}}"] },
+                "description": "Single admin permission assignment."
+              }
+            },
+            {
+              "name": "Toggle Admin Permission Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/toggleStatus/{{admin_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","toggleStatus","{{admin_permission_id}}"] },
+                "description": "Toggle admin permission status."
+              }
+            },
+            {
+              "name": "Update Admin Permission Assignment",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"admin_id\": 1,\n  \"permission_id\": 5\n}" },
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/update/{{admin_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","update","{{admin_permission_id}}"] },
+                "description": "Change which permission is assigned to an admin."
+              }
+            },
+            {
+              "name": "Delete Admin Permission Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-admin/remove/{{admin_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-admin","remove","{{admin_permission_id}}"] },
+                "description": "Remove a direct permission from an admin."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assign Permissions User",
+          "item": [
+            {
+              "name": "Assign Permission to User",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": 1,\n  \"permission_id\": 4\n}" },
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/store", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","store"] },
+                "description": "Directly assign a permission to a user."
+              }
+            },
+            {
+              "name": "Get All User Permission Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/index", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","index"] },
+                "description": "All direct user permission assignments."
+              }
+            },
+            {
+              "name": "Get User Permission by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/findOne/{{user_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","findOne","{{user_permission_id}}"] },
+                "description": "Single user permission assignment."
+              }
+            },
+            {
+              "name": "Toggle User Permission Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/toggleStatus/{{user_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","toggleStatus","{{user_permission_id}}"] },
+                "description": "Toggle user permission status."
+              }
+            },
+            {
+              "name": "Update User Permission Assignment",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"user_id\": 1,\n  \"permission_id\": 6\n}" },
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/update/{{user_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","update","{{user_permission_id}}"] },
+                "description": "Change which permission is assigned to a user."
+              }
+            },
+            {
+              "name": "Delete User Permission Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/permission-assigning-user/remove/{{user_permission_id}}", "host": ["{{base_url}}"], "path": ["admin","permission-assigning-user","remove","{{user_permission_id}}"] },
+                "description": "Remove a direct permission from a user."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Teachers",
+          "item": [
+            {
+              "name": "Create Teacher",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Mr. Ahmed Khan\",\n  \"email\": \"ahmed.khan@school.com\",\n  \"phone\": \"+923011234567\",\n  \"subject_specialization\": \"Mathematics\",\n  \"joining_date\": \"2026-01-15\",\n  \"password\": \"Teacher@123\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/teachers/store", "host": ["{{base_url}}"], "path": ["admin","teachers","store"] },
+                "description": "Create teacher + linked User + assign 'teacher' role. Requires 'teacher' role (guard: user) in roles table."
+              }
+            },
+            {
+              "name": "Get All Teachers",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/teachers/index", "host": ["{{base_url}}"], "path": ["admin","teachers","index"] },
+                "description": "Retrieve all teachers."
+              }
+            },
+            {
+              "name": "Get Teacher by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/teachers/findOne/{{teacher_id}}", "host": ["{{base_url}}"], "path": ["admin","teachers","findOne","{{teacher_id}}"] },
+                "description": "Retrieve a single teacher."
+              }
+            },
+            {
+              "name": "Update Teacher",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Mr. Ahmed Khan Updated\",\n  \"phone\": \"+923019876543\",\n  \"subject_specialization\": \"Advanced Mathematics\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/teachers/update/{{teacher_id}}", "host": ["{{base_url}}"], "path": ["admin","teachers","update","{{teacher_id}}"] },
+                "description": "Update teacher. Syncs name/email/phone to linked User."
+              }
+            },
+            {
+              "name": "Toggle Teacher Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/teachers/toggleStatus/{{teacher_id}}", "host": ["{{base_url}}"], "path": ["admin","teachers","toggleStatus","{{teacher_id}}"] },
+                "description": "Toggle teacher active/inactive status."
+              }
+            },
+            {
+              "name": "Delete Teacher",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/teachers/remove/{{teacher_id}}", "host": ["{{base_url}}"], "path": ["admin","teachers","remove","{{teacher_id}}"] },
+                "description": "Delete teacher record. Linked User is preserved."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Guardians",
+          "item": [
+            {
+              "name": "Create Guardian",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Mr. Tariq Hussain\",\n  \"phone\": \"+923021234567\",\n  \"email\": \"tariq.hussain@gmail.com\",\n  \"relation_to_student\": \"Father\",\n  \"password\": \"Parent@123\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/guardians/store", "host": ["{{base_url}}"], "path": ["admin","guardians","store"] },
+                "description": "Create guardian + linked User + assign 'parent' role. Returns temporary_password."
+              }
+            },
+            {
+              "name": "Get All Guardians",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/guardians/index", "host": ["{{base_url}}"], "path": ["admin","guardians","index"] },
+                "description": "Retrieve all guardians."
+              }
+            },
+            {
+              "name": "Get Guardian by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/guardians/findOne/{{guardian_id}}", "host": ["{{base_url}}"], "path": ["admin","guardians","findOne","{{guardian_id}}"] },
+                "description": "Retrieve a single guardian."
+              }
+            },
+            {
+              "name": "Update Guardian",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+923029876543\",\n  \"relation_to_student\": \"Mother\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/guardians/update/{{guardian_id}}", "host": ["{{base_url}}"], "path": ["admin","guardians","update","{{guardian_id}}"] },
+                "description": "Update guardian. Syncs name/email/phone to linked User."
+              }
+            },
+            {
+              "name": "Delete Guardian",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/guardians/remove/{{guardian_id}}", "host": ["{{base_url}}"], "path": ["admin","guardians","remove","{{guardian_id}}"] },
+                "description": "Delete guardian. Linked User is preserved."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Classes",
+          "item": [
+            {
+              "name": "Create Class",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grade 5 - A\",\n  \"class_teacher_id\": 1,\n  \"section\": \"A\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/classes/store", "host": ["{{base_url}}"], "path": ["admin","classes","store"] },
+                "description": "Create a class. class_teacher_id and section are optional."
+              }
+            },
+            {
+              "name": "Get All Classes",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/classes/index", "host": ["{{base_url}}"], "path": ["admin","classes","index"] },
+                "description": "Retrieve all classes."
+              }
+            },
+            {
+              "name": "Get Class by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/classes/findOne/{{class_id}}", "host": ["{{base_url}}"], "path": ["admin","classes","findOne","{{class_id}}"] },
+                "description": "Retrieve class with teacher name and email."
+              }
+            },
+            {
+              "name": "Update Class",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Grade 5 - B\",\n  \"class_teacher_id\": 2,\n  \"section\": \"B\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/classes/update/{{class_id}}", "host": ["{{base_url}}"], "path": ["admin","classes","update","{{class_id}}"] },
+                "description": "Update class fields."
+              }
+            },
+            {
+              "name": "Toggle Class Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/classes/toggleStatus/{{class_id}}", "host": ["{{base_url}}"], "path": ["admin","classes","toggleStatus","{{class_id}}"] },
+                "description": "Toggle class status."
+              }
+            },
+            {
+              "name": "Delete Class",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/classes/remove/{{class_id}}", "host": ["{{base_url}}"], "path": ["admin","classes","remove","{{class_id}}"] },
+                "description": "Delete class. Blocked if students are assigned."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Students",
+          "item": [
+            {
+              "name": "Create Student",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Sara Ahmed\",\n  \"roll_no\": \"G5A-001\",\n  \"dob\": \"2014-03-22\",\n  \"gender\": \"female\",\n  \"identity_number\": \"42101-0000001-1\",\n  \"class_id\": 1,\n  \"guardian_id\": 1,\n  \"admission_date\": \"2026-04-01\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/students/store", "host": ["{{base_url}}"], "path": ["admin","students","store"] },
+                "description": "Enroll a student. class_id and guardian_id are required."
+              }
+            },
+            {
+              "name": "Get All Students",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/students/index", "host": ["{{base_url}}"], "path": ["admin","students","index"] },
+                "description": "All students with class_name and guardian_name."
+              }
+            },
+            {
+              "name": "Get Student by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/students/findOne/{{student_id}}", "host": ["{{base_url}}"], "path": ["admin","students","findOne","{{student_id}}"] },
+                "description": "Student with class_name, guardian_name, guardian_relation."
+              }
+            },
+            {
+              "name": "Update Student",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Sara Ahmed Updated\",\n  \"class_id\": 2\n}" },
+                "url": { "raw": "{{base_url}}/admin/students/update/{{student_id}}", "host": ["{{base_url}}"], "path": ["admin","students","update","{{student_id}}"] },
+                "description": "Update student fields."
+              }
+            },
+            {
+              "name": "Toggle Student Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/students/toggleStatus/{{student_id}}", "host": ["{{base_url}}"], "path": ["admin","students","toggleStatus","{{student_id}}"] },
+                "description": "Toggle student status."
+              }
+            },
+            {
+              "name": "Delete Student",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/students/remove/{{student_id}}", "host": ["{{base_url}}"], "path": ["admin","students","remove","{{student_id}}"] },
+                "description": "Delete a student record."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Subjects",
+          "item": [
+            {
+              "name": "Create Subject",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Mathematics\",\n  \"code\": \"MATH-101\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/subjects/store", "host": ["{{base_url}}"], "path": ["admin","subjects","store"] },
+                "description": "Create a subject. code must be unique."
+              }
+            },
+            {
+              "name": "Get All Subjects",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/subjects/index", "host": ["{{base_url}}"], "path": ["admin","subjects","index"] },
+                "description": "All subjects ordered by name."
+              }
+            },
+            {
+              "name": "Get Subject by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/subjects/findOne/{{subject_id}}", "host": ["{{base_url}}"], "path": ["admin","subjects","findOne","{{subject_id}}"] },
+                "description": "Retrieve a single subject."
+              }
+            },
+            {
+              "name": "Update Subject",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Advanced Mathematics\",\n  \"code\": \"MATH-201\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/subjects/update/{{subject_id}}", "host": ["{{base_url}}"], "path": ["admin","subjects","update","{{subject_id}}"] },
+                "description": "Update subject. code uniqueness enforced."
+              }
+            },
+            {
+              "name": "Toggle Subject Status",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/subjects/toggleStatus/{{subject_id}}", "host": ["{{base_url}}"], "path": ["admin","subjects","toggleStatus","{{subject_id}}"] },
+                "description": "Toggle subject status."
+              }
+            },
+            {
+              "name": "Delete Subject",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/subjects/remove/{{subject_id}}", "host": ["{{base_url}}"], "path": ["admin","subjects","remove","{{subject_id}}"] },
+                "description": "Delete subject. Blocked if mapped to any class."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Class-Subject-Teacher",
+          "item": [
+            {
+              "name": "Map Subject to Class",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"class_id\": 1,\n  \"subject_id\": 1,\n  \"teacher_id\": 1\n}" },
+                "url": { "raw": "{{base_url}}/admin/class-subjects/store", "host": ["{{base_url}}"], "path": ["admin","class-subjects","store"] },
+                "description": "Map a subject to a class with an optional teacher. Unique on (class_id, subject_id)."
+              }
+            },
+            {
+              "name": "Get Subjects by Class",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/class-subjects/class/{{class_id}}", "host": ["{{base_url}}"], "path": ["admin","class-subjects","class","{{class_id}}"] },
+                "description": "All subjects + assigned teachers for a class."
+              }
+            },
+            {
+              "name": "Get Classes by Teacher",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/class-subjects/teacher/{{teacher_id}}", "host": ["{{base_url}}"], "path": ["admin","class-subjects","teacher","{{teacher_id}}"] },
+                "description": "All class+subject assignments for a teacher."
+              }
+            },
+            {
+              "name": "Reassign Teacher",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"teacher_id\": 2\n}" },
+                "url": { "raw": "{{base_url}}/admin/class-subjects/update/{{class_subject_id}}", "host": ["{{base_url}}"], "path": ["admin","class-subjects","update","{{class_subject_id}}"] },
+                "description": "Reassign or unset the teacher for a class-subject mapping."
+              }
+            },
+            {
+              "name": "Delete Class-Subject Mapping",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/class-subjects/remove/{{class_subject_id}}", "host": ["{{base_url}}"], "path": ["admin","class-subjects","remove","{{class_subject_id}}"] },
+                "description": "Remove a class-subject-teacher mapping."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Attendance",
+          "item": [
+            {
+              "name": "Mark Attendance",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"class_id\": 1,\n  \"date\": \"2026-09-06\",\n  \"records\": [\n    { \"student_id\": 1, \"status\": \"present\" },\n    { \"student_id\": 2, \"status\": \"absent\" },\n    { \"student_id\": 3, \"status\": \"late\" }\n  ]\n}" },
+                "url": { "raw": "{{base_url}}/admin/attendance/mark", "host": ["{{base_url}}"], "path": ["admin","attendance","mark"] },
+                "description": "Bulk upsert attendance for a class. status: present | absent | late."
+              }
+            },
+            {
+              "name": "Get Attendance by Class",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": {
+                  "raw": "{{base_url}}/admin/attendance/class/{{class_id}}?date=2026-09-06",
+                  "host": ["{{base_url}}"], "path": ["admin","attendance","class","{{class_id}}"],
+                  "query": [{ "key": "date", "value": "2026-09-06", "description": "YYYY-MM-DD. Defaults to today." }]
+                },
+                "description": "All attendance records for a class on a date. Includes marked_by_name and marked_by_type."
+              }
+            },
+            {
+              "name": "Get Attendance by Student",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/attendance/student/{{student_id}}", "host": ["{{base_url}}"], "path": ["admin","attendance","student","{{student_id}}"] },
+                "description": "Full attendance history for a student. Includes marked_by_name."
+              }
+            },
+            {
+              "name": "Update Attendance Record",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"present\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/attendance/update/{{attendance_id}}", "host": ["{{base_url}}"], "path": ["admin","attendance","update","{{attendance_id}}"] },
+                "description": "Correct a single attendance record's status."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assignments",
+          "item": [
+            {
+              "name": "Create Assignment",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"class_id\": 1,\n  \"subject_id\": 1,\n  \"teacher_id\": 1,\n  \"title\": \"Chapter 3 — Algebra Exercises\",\n  \"description\": \"Complete exercises 1–20 from the textbook.\",\n  \"due_date\": \"2026-09-20\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/assignments/store", "host": ["{{base_url}}"], "path": ["admin","assignments","store"] },
+                "description": "Create assignment + auto-generate pending submissions for all students in the class."
+              }
+            },
+            {
+              "name": "Get All Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/assignments/index", "host": ["{{base_url}}"], "path": ["admin","assignments","index"] },
+                "description": "All assignments with class_name and teacher_name."
+              }
+            },
+            {
+              "name": "Get Assignment by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/assignments/findOne/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["admin","assignments","findOne","{{assignment_id}}"] },
+                "description": "Assignment with full submission list."
+              }
+            },
+            {
+              "name": "Update Assignment",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"title\": \"Chapter 3 Updated\",\n  \"due_date\": \"2026-09-25\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/assignments/update/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["admin","assignments","update","{{assignment_id}}"] },
+                "description": "Update assignment fields."
+              }
+            },
+            {
+              "name": "Delete Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "url": { "raw": "{{base_url}}/admin/assignments/remove/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["admin","assignments","remove","{{assignment_id}}"] },
+                "description": "Delete assignment + all submissions (CASCADE)."
+              }
+            },
+            {
+              "name": "Grade Submission",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"graded\",\n  \"marks_obtained\": 87.5,\n  \"feedback\": \"Good work, minor errors in Q14.\"\n}" },
+                "url": { "raw": "{{base_url}}/admin/assignments/submissions/update/{{submission_id}}", "host": ["{{base_url}}"], "path": ["admin","assignments","submissions","update","{{submission_id}}"] },
+                "description": "Grade a student's submission. status: pending | submitted | late | graded."
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Teacher",
+      "item": [
+
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+                "const j = pm.response.json();",
+                "if (j && j.data && j.data.access_token) { pm.collectionVariables.set('teacher_token', j.data.access_token); console.log('teacher_token saved'); }"
+              ]}}],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"teacher1@school.com\",\n  \"password\": \"Teacher@123\"\n}" },
+                "url": { "raw": "{{base_url}}/user/login", "host": ["{{base_url}}"], "path": ["user","login"] },
+                "description": "Authenticate as a teacher. access_token auto-saved to {{teacher_token}}."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Attendance",
+          "item": [
+            {
+              "name": "Get My Class",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "url": { "raw": "{{base_url}}/user/teacher/attendance/my-class", "host": ["{{base_url}}"], "path": ["user","teacher","attendance","my-class"] },
+                "description": "Returns the class where this teacher is assigned as homeroom teacher, or a message if unassigned."
+              }
+            },
+            {
+              "name": "Mark Attendance",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"class_id\": 1,\n  \"date\": \"2026-09-06\",\n  \"records\": [\n    { \"student_id\": 1, \"status\": \"present\" },\n    { \"student_id\": 2, \"status\": \"present\" },\n    { \"student_id\": 3, \"status\": \"absent\" }\n  ]\n}" },
+                "url": { "raw": "{{base_url}}/user/teacher/attendance/mark", "host": ["{{base_url}}"], "path": ["user","teacher","attendance","mark"] },
+                "description": "Mark attendance for your own class. Teacher must be class_teacher_id for class_id. Same DTO as admin mark."
+              }
+            },
+            {
+              "name": "Get Attendance by Class",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "url": {
+                  "raw": "{{base_url}}/user/teacher/attendance/class/{{class_id}}?date=2026-09-06",
+                  "host": ["{{base_url}}"], "path": ["user","teacher","attendance","class","{{class_id}}"],
+                  "query": [{ "key": "date", "value": "2026-09-06", "description": "YYYY-MM-DD. Defaults to today." }]
+                },
+                "description": "View your class's attendance sheet for a date. Ownership enforced."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assignments",
+          "item": [
+            {
+              "name": "Create Assignment",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"class_id\": 1,\n  \"subject_id\": 1,\n  \"title\": \"Algebra Worksheet\",\n  \"description\": \"Complete all odd-numbered questions in chapter 4.\",\n  \"due_date\": \"2026-09-25\"\n}" },
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/store", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","store"] },
+                "description": "Create an assignment for a class you teach. subject_id required. teacher_id in body is ignored — set server-side. ClassSubjectTeacher mapping must exist."
+              }
+            },
+            {
+              "name": "Get My Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/index", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","index"] },
+                "description": "All assignments where teacher_id = this teacher."
+              }
+            },
+            {
+              "name": "Get Assignment by ID",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/findOne/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","findOne","{{assignment_id}}"] },
+                "description": "Single assignment with submissions. Ownership enforced."
+              }
+            },
+            {
+              "name": "Update Assignment",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"title\": \"Algebra Worksheet (Extended)\",\n  \"due_date\": \"2026-09-30\"\n}" },
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/update/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","update","{{assignment_id}}"] },
+                "description": "Update title, description, or due_date only. class_id/subject_id/teacher_id are locked."
+              }
+            },
+            {
+              "name": "Delete Assignment",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/remove/{{assignment_id}}", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","remove","{{assignment_id}}"] },
+                "description": "Delete your own assignment. Cascades to all submissions."
+              }
+            },
+            {
+              "name": "Grade Submission",
+              "request": {
+                "method": "PUT",
+                "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{teacher_token}}" }],
+                "body": { "mode": "raw", "raw": "{\n  \"status\": \"graded\",\n  \"marks_obtained\": 92,\n  \"feedback\": \"Excellent work. Full marks on all questions.\"\n}" },
+                "url": { "raw": "{{base_url}}/user/teacher/assignments/submissions/update/{{submission_id}}", "host": ["{{base_url}}"], "path": ["user","teacher","assignments","submissions","update","{{submission_id}}"] },
+                "description": "Grade a student's submission. Parent assignment must belong to this teacher."
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Parent",
+      "item": [
+
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login",
+              "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+                "const j = pm.response.json();",
+                "if (j && j.data && j.data.access_token) { pm.collectionVariables.set('parent_token', j.data.access_token); console.log('parent_token saved'); }"
+              ]}}],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": { "mode": "raw", "raw": "{\n  \"email\": \"guardian1@school.com\",\n  \"password\": \"Parent@123\"\n}" },
+                "url": { "raw": "{{base_url}}/user/login", "host": ["{{base_url}}"], "path": ["user","login"] },
+                "description": "Authenticate as a parent. access_token auto-saved to {{parent_token}}."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Children",
+          "item": [
+            {
+              "name": "Get My Children",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }],
+                "url": { "raw": "{{base_url}}/user/parent/children", "host": ["{{base_url}}"], "path": ["user","parent","children"] },
+                "description": "All children linked to the authenticated guardian's profile (name, class, roll_no, identity_number)."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Attendance",
+          "item": [
+            {
+              "name": "Get Child Attendance",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }],
+                "url": { "raw": "{{base_url}}/user/parent/children/{{student_id}}/attendance", "host": ["{{base_url}}"], "path": ["user","parent","children","{{student_id}}","attendance"] },
+                "description": "Attendance history for one of your children. 403 if student_id doesn't belong to your guardian profile."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Assignments",
+          "item": [
+            {
+              "name": "Get Child Assignments",
+              "request": {
+                "method": "GET",
+                "header": [{ "key": "Authorization", "value": "Bearer {{parent_token}}" }],
+                "url": { "raw": "{{base_url}}/user/parent/children/{{student_id}}/assignments", "host": ["{{base_url}}"], "path": ["user","parent","children","{{student_id}}","assignments"] },
+                "description": "All assignment submissions for one of your children — includes title, due_date, status, marks_obtained, feedback. 403 if student_id doesn't belong to your guardian profile."
+              }
+            }
+          ]
+        }
+
+      ]
+    }
+
+  ]
+}

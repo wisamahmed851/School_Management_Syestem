@@ -1,0 +1,4281 @@
+================================================================================
+SCHOOL MANAGEMENT SYSTEM — API DOCUMENTATION
+================================================================================
+
+PROJECT OVERVIEW
+Tech Stack: NestJS + TypeORM + MySQL
+Base URL: {{base_url}} (default: http://localhost:3000)
+
+This system provides a full-featured school management backend. It supports:
+  • Admin authentication and role/permission-based access control
+  • Management of admins, users (teachers & parents), roles, and permissions
+  • Teacher, guardian, student, class, and subject management
+  • Class-subject-teacher mapping
+  • Attendance tracking (by admin or teacher)
+  • Assignment creation, submission, and grading
+  • Exam scheduling and result entry
+  • A parent portal for viewing children, attendance, and assignments
+
+--------------------------------------------------------------------------------
+AUTHENTICATION
+--------------------------------------------------------------------------------
+
+TOKEN TYPES
+-----------
+1. admin_token
+   Issued at: POST /admin/login
+   Used by:   Admin users to access all /admin/* management endpoints.
+
+2. teacher_token
+   Issued at: POST /user/login  (same endpoint used by parents)
+   Used by:   Teacher users to access /user/teacher/* endpoints.
+   Requires:  The User account must have the "teacher" role assigned.
+
+3. parent_token
+   Issued at: POST /user/login  (same endpoint used by teachers)
+   Used by:   Guardian/parent users to access /user/parent/* endpoints.
+   Requires:  The User account must have the "parent" role assigned.
+
+HOW TO SEND A TOKEN
+-------------------
+Include the token in every protected request header:
+  Authorization: Bearer <token>
+
+PUBLIC ROUTES (no token required)
+----------------------------------
+  POST /admin/login
+  POST /user/login
+  POST /user/register
+  POST /user/refresh-token
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+
+ 1. ADMIN — AUTHENTICATION
+ 2. ADMIN — ADMINS
+ 3. ADMIN — USERS
+ 4. ADMIN — ROLES
+ 5. ADMIN — PERMISSIONS
+ 6. ADMIN — ROLE-PERMISSIONS
+ 7. ADMIN — ASSIGN ROLES TO ADMINS
+ 8. ADMIN — ASSIGN ROLES TO USERS
+ 9. ADMIN — ASSIGN PERMISSIONS TO ADMINS
+10. ADMIN — ASSIGN PERMISSIONS TO USERS
+11. ADMIN — TEACHERS
+12. ADMIN — GUARDIANS
+13. ADMIN — CLASSES
+14. ADMIN — STUDENTS
+15. ADMIN — SUBJECTS
+16. ADMIN — CLASS-SUBJECT-TEACHER MAPPINGS
+17. ADMIN — ATTENDANCE
+18. ADMIN — ASSIGNMENTS
+19. ADMIN — EXAMS & RESULTS
+20. TEACHER — AUTHENTICATION
+21. TEACHER — ATTENDANCE
+22. TEACHER — ASSIGNMENTS
+23. PARENT — AUTHENTICATION
+24. PARENT — CHILDREN
+25. PARENT — CHILD ATTENDANCE
+26. PARENT — CHILD ASSIGNMENTS
+
+    ROUTE COUNT SUMMARY
+
+================================================================================
+SECTION 1: ADMIN — AUTHENTICATION
+================================================================================
+
+Base path: /admin
+Controller: AdminAuthController
+Guard: AdminJwtAuthGuard (where noted)
+
+────────────────────────────────────────────────────────────────────────────────
+1.1. POST /admin/login
+Log in as an admin and receive a JWT access token.
+
+Guard:        None — public route
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "email": "superadmin@school.com",
+  "password": "Admin@1234"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "admin": {
+      "id": 1,
+      "name": "Super Admin",
+      "email": "superadmin@school.com"
+    }
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Invalid email or password" }
+  400: { "statusCode": 400, "message": ["email must be an email", "password should not be empty"] }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.1. GET /admin/sidebar
+Fetch the dynamic sidebar/menu structure, filtered to only the modules and items
+this admin is permitted to see (based on direct permissions and/or role-based
+permissions).
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Sidebar menu fetched",
+  "data": [
+    {
+      "label": "Dashboard",
+      "route": "/dashboard"
+    },
+    {
+      "label": "User Management",
+      "children": [
+        { "label": "Admins", "route": "/admins" },
+        { "label": "Roles", "route": "/roles" }
+      ]
+    },
+    {
+      "label": "Academics",
+      "children": [
+        { "label": "Classes", "route": "/classes" },
+        { "label": "Students", "route": "/students" },
+        { "label": "Teachers", "route": "/teachers" }
+      ]
+    }
+  ]
+}
+
+Note: The exact contents of "data" vary per admin — a menu item or entire
+parent group is omitted if the logged-in admin lacks the required permission
+for every item under it. Two different admins hitting this same endpoint will
+receive different results.
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+1.2. GET /admin/profile
+Retrieve the authenticated admin's profile information.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Profile fetched successfully",
+  "data": {
+    "id": 1,
+    "name": "Super Admin",
+    "email": "superadmin@school.com",
+    "image": "uploads/admin-avatar.jpg",
+    "status": 1,
+    "created_at": "2024-01-15"
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+1.3. POST /admin/change-password
+Change the authenticated admin's password.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "oldPassword": "Admin@1234",
+  "newPassword": "NewPass@5678"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Password changed successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  400: { "statusCode": 400, "message": "Old password is incorrect" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+1.4. POST /admin/logout
+Invalidate the current admin session / token.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 2: ADMIN — ADMINS
+================================================================================
+
+Base path: /admin
+Controller: AdminsController
+Guard: AdminJwtAuthGuard + PermissionsGuard (on every route)
+Note: store and update routes accept multipart/form-data for image upload.
+
+────────────────────────────────────────────────────────────────────────────────
+2.1. POST /admin/store
+Create a new admin account. Accepts an optional profile image upload.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.create
+Path Params:  None
+Query Params: None
+
+Request Body: multipart/form-data
+  name     (optional, string)       — "Jane Smith"
+  email    (required, string)       — "jane.smith@school.com"
+  password (required, string)       — "Secure@9876"
+  image    (optional, file)         — profile photo
+  role_id  (optional, number)       — 2
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Admin created successfully",
+  "data": {
+    "id": 5,
+    "name": "Jane Smith",
+    "email": "jane.smith@school.com",
+    "image": "uploads/1710000000000.jpg",
+    "status": 1,
+    "created_at": "2024-03-10"
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Email already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.2. GET /admin/index
+List all admin accounts.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admins fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Super Admin",
+      "email": "superadmin@school.com",
+      "image": null,
+      "status": 1,
+      "created_at": "2024-01-01"
+    },
+    {
+      "id": 5,
+      "name": "Jane Smith",
+      "email": "jane.smith@school.com",
+      "image": "uploads/1710000000000.jpg",
+      "status": 1,
+      "created_at": "2024-03-10"
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.3. GET /admin/active
+List all active (status = 1) admin accounts. Shares the admins.index permission.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Active admins fetched successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Super Admin",
+      "email": "superadmin@school.com",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.4. GET /admin/findOne/:id
+Get a single admin by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.findOne
+Path Params:  id (number) — the admin's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin fetched successfully",
+  "data": {
+    "id": 5,
+    "name": "Jane Smith",
+    "email": "jane.smith@school.com",
+    "image": "uploads/1710000000000.jpg",
+    "status": 1,
+    "created_at": "2024-03-10"
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Admin not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.5. PUT /admin/update/:id
+Update an admin's details. Accepts an optional new profile image.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.update
+Path Params:  id (number) — the admin's ID
+Query Params: None
+
+Request Body: multipart/form-data
+  name     (optional, string) — "Jane M. Smith"
+  email    (optional, string) — "jane.m.smith@school.com"
+  password (optional, string) — "UpdatedPass@1"
+  image    (optional, file)   — new profile photo
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin updated successfully",
+  "data": {
+    "id": 5,
+    "name": "Jane M. Smith",
+    "email": "jane.m.smith@school.com",
+    "image": "uploads/1710000099999.jpg",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Admin not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.6. DELETE /admin/remove/:id
+Permanently delete an admin account.
+
+Guard:        AdminJwtAuthGuard | Permission: admins.remove
+Path Params:  id (number) — the admin's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Admin not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+2.7. GET /admin/toggleStatus/:id
+Toggle an admin's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: admins.toggleStatus
+Path Params:  id (number) — the admin's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin status updated",
+  "data": {
+    "id": 5,
+    "status": 0
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Admin not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 3: ADMIN — USERS
+================================================================================
+
+Base path: /admin/users
+Controller: UsersController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+Note: store and update routes accept multipart/form-data for image upload.
+
+────────────────────────────────────────────────────────────────────────────────
+3.1. POST /admin/users/store
+Create a new user (teacher or parent account).
+
+Guard:        AdminJwtAuthGuard | Permission: users.create
+Path Params:  None
+Query Params: None
+
+Request Body: multipart/form-data
+  name     (required, string) — "Ahmed Khan"
+  email    (required, string) — "ahmed.khan@school.com"
+  password (required, string) — "Pass@1234"
+  phone    (optional, string) — "+92-300-1234567"
+  address  (optional, string) — "House 12, Street 4, Lahore"
+  image    (optional, file)   — profile photo
+  role_id  (required, number) — 3
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "User created successfully",
+  "data": {
+    "id": 10,
+    "name": "Ahmed Khan",
+    "email": "ahmed.khan@school.com",
+    "phone": "+92-300-1234567",
+    "address": "House 12, Street 4, Lahore",
+    "image": "uploads/1710000011111.jpg",
+    "status": 1,
+    "created_at": "2024-03-15"
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Email already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+3.2. GET /admin/users/index
+List all user accounts.
+
+Guard:        AdminJwtAuthGuard | Permission: users.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": [
+    {
+      "id": 10,
+      "name": "Ahmed Khan",
+      "email": "ahmed.khan@school.com",
+      "phone": "+92-300-1234567",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+3.3. GET /admin/users/findOne/:id
+Get a single user by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: users.findOne
+Path Params:  id (number) — the user's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User fetched successfully",
+  "data": {
+    "id": 10,
+    "name": "Ahmed Khan",
+    "email": "ahmed.khan@school.com",
+    "phone": "+92-300-1234567",
+    "address": "House 12, Street 4, Lahore",
+    "image": "uploads/1710000011111.jpg",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "User not found" }
+  406: { "statusCode": 406, "message": "id must be a number" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+3.4. POST /admin/users/findOneByEmail
+Look up a user by their email address.
+
+Guard:        AdminJwtAuthGuard | Permission: users.findOne
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "email": "ahmed.khan@school.com"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User fetched successfully",
+  "data": {
+    "id": 10,
+    "name": "Ahmed Khan",
+    "email": "ahmed.khan@school.com",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "User not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+3.5. PUT /admin/users/update/:id
+Update a user's details. Accepts an optional new profile image.
+
+Guard:        AdminJwtAuthGuard | Permission: users.update
+Path Params:  id (number) — the user's ID
+Query Params: None
+
+Request Body: multipart/form-data
+  name     (optional, string) — "Ahmed A. Khan"
+  email    (optional, string) — "ahmed.a.khan@school.com"
+  password (optional, string) — "NewPass@9999"
+  phone    (optional, string) — "+92-321-9876543"
+  address  (optional, string) — "Flat 3B, Model Town, Lahore"
+  image    (optional, file)   — updated profile photo
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User updated successfully",
+  "data": {
+    "id": 10,
+    "name": "Ahmed A. Khan",
+    "email": "ahmed.a.khan@school.com",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "User not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+3.6. PUT /admin/users/toggleStatus/:id
+Toggle a user's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: users.toggleStatus
+Path Params:  id (number) — the user's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User status updated",
+  "data": {
+    "id": 10,
+    "status": 0
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "User not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 4: ADMIN — ROLES
+================================================================================
+
+Base path: /admin/roles
+Controller: RolesController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+4.1. POST /admin/roles/store
+Create a new role.
+
+Guard:        AdminJwtAuthGuard | Permission: roles.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "teacher",
+  "guard": "user"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Role created successfully",
+  "data": {
+    "id": 3,
+    "name": "teacher",
+    "guard": "user",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Role already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+4.2. GET /admin/roles/index
+List all roles.
+
+Guard:        AdminJwtAuthGuard | Permission: roles.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Roles fetched successfully",
+  "data": [
+    { "id": 1, "name": "super-admin", "guard": "admin", "status": 1 },
+    { "id": 2, "name": "parent",      "guard": "user",  "status": 1 },
+    { "id": 3, "name": "teacher",     "guard": "user",  "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+4.3. GET /admin/roles/show/:id
+Get a single role by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: roles.findOne
+Path Params:  id (number) — the role's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role fetched successfully",
+  "data": {
+    "id": 3,
+    "name": "teacher",
+    "guard": "user",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Role not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+4.4. PATCH /admin/roles/update/:id
+Update an existing role.
+
+Guard:        AdminJwtAuthGuard | Permission: roles.update
+Path Params:  id (number) — the role's ID
+Query Params: None
+
+Request Body:
+{
+  "name": "head-teacher",
+  "guard": "user"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role updated successfully",
+  "data": {
+    "id": 3,
+    "name": "head-teacher",
+    "guard": "user",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Role not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+4.5. GET /admin/roles/toggleStatus/:id
+Toggle a role's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: roles.toggleStatus
+Path Params:  id (number) — the role's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role status updated",
+  "data": { "id": 3, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Role not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+4.6. DELETE /admin/roles/remove/:id
+Delete a role by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: roles.remove
+Path Params:  id (number) — the role's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Role not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 5: ADMIN — PERMISSIONS
+================================================================================
+
+Base path: /admin/permissions
+Controller: PermissionsController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+5.1. POST /admin/permissions/store
+Create a new permission.
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "module": "students",
+  "action": "create",
+  "name": "students.create",
+  "guard": "admin"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Permission created successfully",
+  "data": {
+    "id": 42,
+    "module": "students",
+    "action": "create",
+    "name": "students.create",
+    "guard": "admin",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Permission already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+5.2. GET /admin/permissions/index
+List all permissions.
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Permissions fetched successfully",
+  "data": [
+    { "id": 1,  "module": "admins",   "action": "create",       "name": "admins.create",       "guard": "admin", "status": 1 },
+    { "id": 42, "module": "students", "action": "create",       "name": "students.create",     "guard": "admin", "status": 1 },
+    { "id": 43, "module": "students", "action": "index",        "name": "students.index",      "guard": "admin", "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+5.3. GET /admin/permissions/findOne/:id
+Get a single permission by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.findOne
+Path Params:  id (number) — the permission's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Permission fetched successfully",
+  "data": {
+    "id": 42,
+    "module": "students",
+    "action": "create",
+    "name": "students.create",
+    "guard": "admin",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Permission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+5.4. PATCH /admin/permissions/update/:id
+Update an existing permission.
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.update
+Path Params:  id (number) — the permission's ID
+Query Params: None
+
+Request Body:
+{
+  "module": "students",
+  "action": "create",
+  "name": "students.create",
+  "guard": "admin"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Permission updated successfully",
+  "data": {
+    "id": 42,
+    "module": "students",
+    "action": "create",
+    "name": "students.create",
+    "guard": "admin",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Permission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+5.5. GET /admin/permissions/toggleStatus/:id
+Toggle a permission's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.toggleStatus
+Path Params:  id (number) — the permission's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Permission status updated",
+  "data": { "id": 42, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Permission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+5.6. DELETE /admin/permissions/remove/:id
+Delete a permission by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: permissions.remove
+Path Params:  id (number) — the permission's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Permission deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Permission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 6: ADMIN — ROLE-PERMISSIONS
+================================================================================
+
+Base path: /admin/role-permissions
+Controller: RolePermissionsController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+6.1. POST /admin/role-permissions/store
+Assign a permission to a role.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "role_id": 3,
+  "permission_id": 42
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Permission assigned to role successfully",
+  "data": {
+    "id": 15,
+    "role_id": 3,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "This permission is already assigned to the role" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+6.2. GET /admin/role-permissions/index
+List all role-permission assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role permissions fetched successfully",
+  "data": [
+    { "id": 15, "role_id": 3, "permission_id": 42, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+6.3. GET /admin/role-permissions/findOne/:id
+Get a single role-permission record by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.findOne
+Path Params:  id (number) — the record's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role permission fetched successfully",
+  "data": {
+    "id": 15,
+    "role_id": 3,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+6.4. GET /admin/role-permissions/toggleStatus/:id
+Toggle a role-permission record's active/inactive status.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.toggleStatus
+Path Params:  id (number) — the record's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role permission status updated",
+  "data": { "id": 15, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+6.5. PATCH /admin/role-permissions/update/:id
+Update (reassign) a role-permission record.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.update
+Path Params:  id (number) — the record's ID
+Query Params: None
+
+Request Body:
+{
+  "role_id": 3,
+  "permission_id": 55
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role permission updated successfully",
+  "data": {
+    "id": 15,
+    "role_id": 3,
+    "permission_id": 55,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+6.6. DELETE /admin/role-permissions/remove/:id
+Remove a role-permission assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: role-permissions.remove
+Path Params:  id (number) — the record's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Role permission deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 7: ADMIN — ASSIGN ROLES TO ADMINS
+================================================================================
+
+Base path: /admin/roles-assigning-admin
+Controller: AdminRolesController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+7.1. POST /admin/roles-assigning-admin/store
+Assign a role to an admin account.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "admin_id": 5,
+  "role_id": 1
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Role assigned to admin successfully",
+  "data": {
+    "id": 8,
+    "admin_id": 5,
+    "role_id": 1,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Role already assigned to this admin" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+7.2. GET /admin/roles-assigning-admin/index
+List all admin-role assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin role assignments fetched successfully",
+  "data": [
+    { "id": 8, "admin_id": 5, "role_id": 1, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+7.3. GET /admin/roles-assigning-admin/findOne/:id
+Get a single admin-role assignment by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.findOne
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin role assignment fetched successfully",
+  "data": {
+    "id": 8,
+    "admin_id": 5,
+    "role_id": 1,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+7.4. GET /admin/roles-assigning-admin/toggleStatus/:id
+Toggle the active/inactive status of an admin-role assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.toggleStatus
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin role status updated",
+  "data": { "id": 8, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+7.5. PATCH /admin/roles-assigning-admin/update/:id
+Update an admin-role assignment (change admin or role).
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.update
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "admin_id": 5,
+  "role_id": 2
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin role updated successfully",
+  "data": {
+    "id": 8,
+    "admin_id": 5,
+    "role_id": 2,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+7.6. DELETE /admin/roles-assigning-admin/remove/:id
+Remove an admin-role assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-roles.remove
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin role assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 8: ADMIN — ASSIGN ROLES TO USERS
+================================================================================
+
+Base path: /admin/roles-assigning-user
+Controller: UserRolesController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+8.1. POST /admin/roles-assigning-user/store
+Assign a role to a user account.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "user_id": 10,
+  "role_id": 3
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Role assigned to user successfully",
+  "data": {
+    "id": 12,
+    "user_id": 10,
+    "role_id": 3,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Role already assigned to this user" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+8.2. GET /admin/roles-assigning-user/list
+List all user-role assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User role assignments fetched successfully",
+  "data": [
+    { "id": 12, "user_id": 10, "role_id": 3, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+8.3. GET /admin/roles-assigning-user/findOne/:id
+Get a single user-role assignment by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.findOne
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User role assignment fetched successfully",
+  "data": {
+    "id": 12,
+    "user_id": 10,
+    "role_id": 3,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+8.4. PATCH /admin/roles-assigning-user/update/:id
+Update a user-role assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.update
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "user_id": 10,
+  "role_id": 2
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User role updated successfully",
+  "data": {
+    "id": 12,
+    "user_id": 10,
+    "role_id": 2,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+8.5. GET /admin/roles-assigning-user/toggleStatus/:id
+Toggle a user-role assignment's active/inactive status.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.toggleStatus
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User role status updated",
+  "data": { "id": 12, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+8.6. DELETE /admin/roles-assigning-user/remove/:id
+Remove a user-role assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: user-roles.remove
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User role assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 9: ADMIN — ASSIGN PERMISSIONS TO ADMINS
+================================================================================
+
+Base path: /admin/permission-assigning-admin
+Controller: AdminPermissionsController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+9.1. POST /admin/permission-assigning-admin/store
+Directly assign a permission to an admin account.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "admin_id": 5,
+  "permission_id": 42
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Permission assigned to admin successfully",
+  "data": {
+    "id": 20,
+    "admin_id": 5,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Permission already assigned to this admin" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+9.2. GET /admin/permission-assigning-admin/index
+List all direct admin-permission assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin permission assignments fetched successfully",
+  "data": [
+    { "id": 20, "admin_id": 5, "permission_id": 42, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+9.3. GET /admin/permission-assigning-admin/findOne/:id
+Get a single admin-permission assignment by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.findOne
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin permission fetched successfully",
+  "data": {
+    "id": 20,
+    "admin_id": 5,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+9.4. GET /admin/permission-assigning-admin/toggleStatus/:id
+Toggle an admin-permission assignment's active/inactive status.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.toggleStatus
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin permission status updated",
+  "data": { "id": 20, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+9.5. PATCH /admin/permission-assigning-admin/update/:id
+Update a direct admin-permission assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.update
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "admin_id": 5,
+  "permission_id": 55
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin permission updated successfully",
+  "data": {
+    "id": 20,
+    "admin_id": 5,
+    "permission_id": 55,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+9.6. DELETE /admin/permission-assigning-admin/remove/:id
+Remove a direct admin-permission assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: admin-permissions.remove
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Admin permission assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 10: ADMIN — ASSIGN PERMISSIONS TO USERS
+================================================================================
+
+Base path: /admin/permission-assigning-user
+Controller: UserPermissionsController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+10.1. POST /admin/permission-assigning-user/store
+Directly assign a permission to a user account.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "user_id": 10,
+  "permission_id": 42
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Permission assigned to user successfully",
+  "data": {
+    "id": 30,
+    "user_id": 10,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Permission already assigned to this user" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+10.2. GET /admin/permission-assigning-user/index
+List all direct user-permission assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User permission assignments fetched successfully",
+  "data": [
+    { "id": 30, "user_id": 10, "permission_id": 42, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+10.3. GET /admin/permission-assigning-user/findOne/:id
+Get a single user-permission assignment by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.findOne
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User permission fetched successfully",
+  "data": {
+    "id": 30,
+    "user_id": 10,
+    "permission_id": 42,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+10.4. GET /admin/permission-assigning-user/toggleStatus/:id
+Toggle a user-permission assignment's active/inactive status.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.toggleStatus
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User permission status updated",
+  "data": { "id": 30, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+10.5. PATCH /admin/permission-assigning-user/update/:id
+Update a direct user-permission assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.update
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "user_id": 10,
+  "permission_id": 50
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User permission updated successfully",
+  "data": {
+    "id": 30,
+    "user_id": 10,
+    "permission_id": 50,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+10.6. DELETE /admin/permission-assigning-user/remove/:id
+Remove a direct user-permission assignment.
+
+Guard:        AdminJwtAuthGuard | Permission: user-permissions.remove
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "User permission assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 11: ADMIN — TEACHERS
+================================================================================
+
+Base path: /admin/teachers
+Controller: TeacherController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+11.1. POST /admin/teachers/store
+Create a new teacher and automatically create a linked User account.
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Mr. Bilal Ahmed",
+  "email": "bilal.ahmed@school.com",
+  "phone": "+92-333-4567890",
+  "subject_specialization": "Mathematics",
+  "joining_date": "2024-02-01",
+  "password": "Teacher@123"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Teacher created successfully",
+  "data": {
+    "id": 7,
+    "name": "Mr. Bilal Ahmed",
+    "email": "bilal.ahmed@school.com",
+    "phone": "+92-333-4567890",
+    "subject_specialization": "Mathematics",
+    "joining_date": "2024-02-01",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Email already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+11.2. GET /admin/teachers/index
+List all teachers.
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teachers fetched successfully",
+  "data": [
+    {
+      "id": 7,
+      "name": "Mr. Bilal Ahmed",
+      "email": "bilal.ahmed@school.com",
+      "subject_specialization": "Mathematics",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+11.3. GET /admin/teachers/findOne/:id
+Get a single teacher by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.findOne
+Path Params:  id (number) — the teacher's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teacher fetched successfully",
+  "data": {
+    "id": 7,
+    "name": "Mr. Bilal Ahmed",
+    "email": "bilal.ahmed@school.com",
+    "phone": "+92-333-4567890",
+    "subject_specialization": "Mathematics",
+    "joining_date": "2024-02-01",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Teacher not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+11.4. PUT /admin/teachers/update/:id
+Update a teacher's details. Does not update the linked User password.
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.update
+Path Params:  id (number) — the teacher's ID
+Query Params: None
+
+Request Body:
+{
+  "name": "Mr. Bilal A. Ahmed",
+  "phone": "+92-344-9988776",
+  "subject_specialization": "Applied Mathematics",
+  "joining_date": "2024-02-01"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teacher updated successfully",
+  "data": {
+    "id": 7,
+    "name": "Mr. Bilal A. Ahmed",
+    "subject_specialization": "Applied Mathematics",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Teacher not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+11.5. GET /admin/teachers/toggleStatus/:id
+Toggle a teacher's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.toggleStatus
+Path Params:  id (number) — the teacher's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teacher status updated",
+  "data": { "id": 7, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Teacher not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+11.6. DELETE /admin/teachers/remove/:id
+Delete a teacher record.
+
+Guard:        AdminJwtAuthGuard | Permission: teachers.remove
+Path Params:  id (number) — the teacher's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teacher deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Teacher not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 12: ADMIN — GUARDIANS
+================================================================================
+
+Base path: /admin/guardians
+Controller: GuardianController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+12.1. POST /admin/guardians/store
+Create a new guardian and automatically create a linked User account.
+
+Guard:        AdminJwtAuthGuard | Permission: guardians.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Mrs. Fatima Malik",
+  "phone": "+92-312-6543210",
+  "email": "fatima.malik@gmail.com",
+  "relation_to_student": "mother",
+  "password": "Parent@456"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Guardian created successfully",
+  "data": {
+    "id": 4,
+    "name": "Mrs. Fatima Malik",
+    "phone": "+92-312-6543210",
+    "email": "fatima.malik@gmail.com",
+    "relation_to_student": "mother",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Email already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+12.2. GET /admin/guardians/index
+List all guardians.
+
+Guard:        AdminJwtAuthGuard | Permission: guardians.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Guardians fetched successfully",
+  "data": [
+    {
+      "id": 4,
+      "name": "Mrs. Fatima Malik",
+      "phone": "+92-312-6543210",
+      "email": "fatima.malik@gmail.com",
+      "relation_to_student": "mother",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+12.3. GET /admin/guardians/findOne/:id
+Get a single guardian by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: guardians.findOne
+Path Params:  id (number) — the guardian's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Guardian fetched successfully",
+  "data": {
+    "id": 4,
+    "name": "Mrs. Fatima Malik",
+    "phone": "+92-312-6543210",
+    "email": "fatima.malik@gmail.com",
+    "relation_to_student": "mother",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Guardian not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+12.4. PUT /admin/guardians/update/:id
+Update a guardian's details.
+
+Guard:        AdminJwtAuthGuard | Permission: guardians.update
+Path Params:  id (number) — the guardian's ID
+Query Params: None
+
+Request Body:
+{
+  "phone": "+92-312-0000001",
+  "relation_to_student": "father"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Guardian updated successfully",
+  "data": {
+    "id": 4,
+    "name": "Mrs. Fatima Malik",
+    "phone": "+92-312-0000001",
+    "relation_to_student": "father",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Guardian not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+12.5. DELETE /admin/guardians/remove/:id
+Delete a guardian record.
+
+Guard:        AdminJwtAuthGuard | Permission: guardians.remove
+Path Params:  id (number) — the guardian's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Guardian deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Guardian not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 13: ADMIN — CLASSES
+================================================================================
+
+Base path: /admin/classes
+Controller: SchoolClassController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+13.1. POST /admin/classes/store
+Create a new school class.
+
+Guard:        AdminJwtAuthGuard | Permission: classes.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Grade 5 - A",
+  "class_teacher_id": 7,
+  "section": "A"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Class created successfully",
+  "data": {
+    "id": 3,
+    "name": "Grade 5 - A",
+    "class_teacher_id": 7,
+    "section": "A",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Class already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+13.2. GET /admin/classes/index
+List all classes.
+
+Guard:        AdminJwtAuthGuard | Permission: classes.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Classes fetched successfully",
+  "data": [
+    { "id": 3, "name": "Grade 5 - A", "section": "A", "class_teacher_id": 7, "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+13.3. GET /admin/classes/findOne/:id
+Get a single class by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: classes.findOne
+Path Params:  id (number) — the class's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class fetched successfully",
+  "data": {
+    "id": 3,
+    "name": "Grade 5 - A",
+    "section": "A",
+    "class_teacher_id": 7,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+13.4. PUT /admin/classes/update/:id
+Update a class's details.
+
+Guard:        AdminJwtAuthGuard | Permission: classes.update
+Path Params:  id (number) — the class's ID
+Query Params: None
+
+Request Body:
+{
+  "name": "Grade 5 - B",
+  "class_teacher_id": 9,
+  "section": "B"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class updated successfully",
+  "data": {
+    "id": 3,
+    "name": "Grade 5 - B",
+    "section": "B",
+    "class_teacher_id": 9,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+13.5. GET /admin/classes/toggleStatus/:id
+Toggle a class's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: classes.toggleStatus
+Path Params:  id (number) — the class's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class status updated",
+  "data": { "id": 3, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+13.6. DELETE /admin/classes/remove/:id
+Delete a class.
+
+Guard:        AdminJwtAuthGuard | Permission: classes.remove
+Path Params:  id (number) — the class's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 14: ADMIN — STUDENTS
+================================================================================
+
+Base path: /admin/students
+Controller: StudentController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+14.1. POST /admin/students/store
+Enroll a new student.
+
+Guard:        AdminJwtAuthGuard | Permission: students.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Ali Hassan",
+  "roll_no": "GR5A-001",
+  "dob": "2014-06-15",
+  "gender": "male",
+  "identity_number": "35202-1234567-1",
+  "class_id": 3,
+  "guardian_id": 4,
+  "admission_date": "2024-04-01"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Student created successfully",
+  "data": {
+    "id": 22,
+    "name": "Ali Hassan",
+    "roll_no": "GR5A-001",
+    "dob": "2014-06-15",
+    "gender": "male",
+    "identity_number": "35202-1234567-1",
+    "class_id": 3,
+    "guardian_id": 4,
+    "admission_date": "2024-04-01",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "roll_no already exists in this class" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.2. GET /admin/students/index
+List all enrolled students.
+
+Guard:        AdminJwtAuthGuard | Permission: students.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Students fetched successfully",
+  "data": [
+    {
+      "id": 22,
+      "name": "Ali Hassan",
+      "roll_no": "GR5A-001",
+      "class_id": 3,
+      "guardian_id": 4,
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.3. GET /admin/students/findOne/:id
+Get a single student by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: students.findOne
+Path Params:  id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student fetched successfully",
+  "data": {
+    "id": 22,
+    "name": "Ali Hassan",
+    "roll_no": "GR5A-001",
+    "dob": "2014-06-15",
+    "gender": "male",
+    "identity_number": "35202-1234567-1",
+    "class_id": 3,
+    "guardian_id": 4,
+    "admission_date": "2024-04-01",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.4. PUT /admin/students/update/:id
+Update a student's record.
+
+Guard:        AdminJwtAuthGuard | Permission: students.update
+Path Params:  id (number) — the student's ID
+Query Params: None
+
+Request Body:
+{
+  "name": "Ali H. Hassan",
+  "roll_no": "GR5B-001",
+  "class_id": 4,
+  "guardian_id": 4
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student updated successfully",
+  "data": {
+    "id": 22,
+    "name": "Ali H. Hassan",
+    "roll_no": "GR5B-001",
+    "class_id": 4,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.5. GET /admin/students/toggleStatus/:id
+Toggle a student's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: students.toggleStatus
+Path Params:  id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student status updated",
+  "data": { "id": 22, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+14.6. DELETE /admin/students/remove/:id
+Delete a student record.
+
+Guard:        AdminJwtAuthGuard | Permission: students.remove
+Path Params:  id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 15: ADMIN — SUBJECTS
+================================================================================
+
+Base path: /admin/subjects
+Controller: SubjectController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+15.1. POST /admin/subjects/store
+Create a new subject.
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Mathematics",
+  "code": "MATH-101"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Subject created successfully",
+  "data": {
+    "id": 5,
+    "name": "Mathematics",
+    "code": "MATH-101",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "Subject code already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+15.2. GET /admin/subjects/index
+List all subjects.
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Subjects fetched successfully",
+  "data": [
+    { "id": 5, "name": "Mathematics", "code": "MATH-101", "status": 1 },
+    { "id": 6, "name": "English",     "code": "ENG-101",  "status": 1 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+15.3. GET /admin/subjects/findOne/:id
+Get a single subject by ID.
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.findOne
+Path Params:  id (number) — the subject's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Subject fetched successfully",
+  "data": {
+    "id": 5,
+    "name": "Mathematics",
+    "code": "MATH-101",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Subject not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+15.4. PUT /admin/subjects/update/:id
+Update a subject.
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.update
+Path Params:  id (number) — the subject's ID
+Query Params: None
+
+Request Body:
+{
+  "name": "Advanced Mathematics",
+  "code": "MATH-201"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Subject updated successfully",
+  "data": {
+    "id": 5,
+    "name": "Advanced Mathematics",
+    "code": "MATH-201",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Subject not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+15.5. GET /admin/subjects/toggleStatus/:id
+Toggle a subject's active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.toggleStatus
+Path Params:  id (number) — the subject's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Subject status updated",
+  "data": { "id": 5, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Subject not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+15.6. DELETE /admin/subjects/remove/:id
+Delete a subject.
+
+Guard:        AdminJwtAuthGuard | Permission: subjects.remove
+Path Params:  id (number) — the subject's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Subject deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Subject not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 16: ADMIN — CLASS-SUBJECT-TEACHER MAPPINGS
+================================================================================
+
+Base path: /admin/class-subjects
+Controller: ClassSubjectController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+
+────────────────────────────────────────────────────────────────────────────────
+16.1. POST /admin/class-subjects/store
+Map a subject (and optionally a teacher) to a class.
+
+Guard:        AdminJwtAuthGuard | Permission: class-subjects.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "class_id": 3,
+  "subject_id": 5,
+  "teacher_id": 7
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Class-subject mapping created successfully",
+  "data": {
+    "id": 11,
+    "class_id": 3,
+    "subject_id": 5,
+    "teacher_id": 7
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  409: { "statusCode": 409, "message": "This subject is already mapped to this class" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+16.2. GET /admin/class-subjects/class/:class_id
+List all subject-teacher mappings for a specific class.
+
+Guard:        AdminJwtAuthGuard | Permission: class-subjects.index
+Path Params:  class_id (number) — the class's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class subjects fetched successfully",
+  "data": [
+    { "id": 11, "class_id": 3, "subject_id": 5, "teacher_id": 7 },
+    { "id": 12, "class_id": 3, "subject_id": 6, "teacher_id": 9 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+16.3. GET /admin/class-subjects/teacher/:teacher_id
+List all class-subject mappings assigned to a specific teacher.
+
+Guard:        AdminJwtAuthGuard | Permission: class-subjects.index
+Path Params:  teacher_id (number) — the teacher's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Teacher class-subjects fetched successfully",
+  "data": [
+    { "id": 11, "class_id": 3, "subject_id": 5, "teacher_id": 7 }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Teacher not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+16.4. PUT /admin/class-subjects/update/:id
+Reassign or unset the teacher for a class-subject mapping.
+
+Guard:        AdminJwtAuthGuard | Permission: class-subjects.update
+Path Params:  id (number) — the mapping record's ID
+Query Params: None
+
+Request Body:
+{
+  "teacher_id": 9
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class-subject mapping updated successfully",
+  "data": {
+    "id": 11,
+    "class_id": 3,
+    "subject_id": 5,
+    "teacher_id": 9
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Mapping not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+16.5. DELETE /admin/class-subjects/remove/:id
+Delete a class-subject mapping.
+
+Guard:        AdminJwtAuthGuard | Permission: class-subjects.remove
+Path Params:  id (number) — the mapping record's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class-subject mapping deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Mapping not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 17: ADMIN — ATTENDANCE
+================================================================================
+
+Base path: /admin/attendance
+Controller: AttendanceController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+Note: Attendance status enum values: present | absent | late
+      MarkedByType for admin routes is always "admin".
+
+────────────────────────────────────────────────────────────────────────────────
+17.1. POST /admin/attendance/mark
+Bulk-mark attendance for an entire class on a given date.
+
+Guard:        AdminJwtAuthGuard | Permission: attendance.mark
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "class_id": 3,
+  "date": "2024-06-10",
+  "records": [
+    { "student_id": 22, "status": "present" },
+    { "student_id": 23, "status": "absent"  },
+    { "student_id": 24, "status": "late"    }
+  ]
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Attendance marked successfully",
+  "data": [
+    { "id": 100, "student_id": 22, "class_id": 3, "date": "2024-06-10", "status": "present", "marked_by_type": "admin" },
+    { "id": 101, "student_id": 23, "class_id": 3, "date": "2024-06-10", "status": "absent",  "marked_by_type": "admin" },
+    { "id": 102, "student_id": 24, "class_id": 3, "date": "2024-06-10", "status": "late",    "marked_by_type": "admin" }
+  ]
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "records must contain at least one entry" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+17.2. GET /admin/attendance/class/:class_id?date=YYYY-MM-DD
+Retrieve the attendance sheet for a class on a specific date.
+Defaults to today's date if the date query param is omitted.
+
+Guard:        AdminJwtAuthGuard | Permission: attendance.index
+Path Params:  class_id (number) — the class's ID
+Query Params: date (optional, string, YYYY-MM-DD) — defaults to today
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Attendance fetched successfully",
+  "data": [
+    { "id": 100, "student_id": 22, "class_id": 3, "date": "2024-06-10", "status": "present", "marked_by_type": "admin" },
+    { "id": 101, "student_id": 23, "class_id": 3, "date": "2024-06-10", "status": "absent",  "marked_by_type": "admin" }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+17.3. GET /admin/attendance/student/:student_id
+Retrieve the full attendance history for a single student.
+
+Guard:        AdminJwtAuthGuard | Permission: attendance.index
+Path Params:  student_id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student attendance fetched successfully",
+  "data": [
+    { "id": 100, "student_id": 22, "class_id": 3, "date": "2024-06-10", "status": "present", "marked_by_type": "admin" },
+    { "id": 85,  "student_id": 22, "class_id": 3, "date": "2024-06-09", "status": "absent",  "marked_by_type": "teacher" }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+17.4. PUT /admin/attendance/update/:id
+Correct a single attendance record (change status).
+
+Guard:        AdminJwtAuthGuard | Permission: attendance.update
+Path Params:  id (number) — the attendance record's ID
+Query Params: None
+
+Request Body:
+{
+  "status": "present"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Attendance updated successfully",
+  "data": {
+    "id": 101,
+    "student_id": 23,
+    "class_id": 3,
+    "date": "2024-06-10",
+    "status": "present"
+  }
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "status must be one of: present, absent, late" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Attendance record not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 18: ADMIN — ASSIGNMENTS
+================================================================================
+
+Base path: /admin/assignments
+Controller: AssignmentController
+Guard: AdminJwtAuthGuard + PermissionsGuard
+Note: Submission status enum values: pending | submitted | late | graded
+
+────────────────────────────────────────────────────────────────────────────────
+18.1. POST /admin/assignments/store
+Create a new assignment for a class.
+Auto-generates a pending submission row for every student in the class.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.create
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "class_id": 3,
+  "subject_id": 5,
+  "teacher_id": 7,
+  "title": "Chapter 3 Algebra Exercises",
+  "description": "Complete all exercises from pages 45-52.",
+  "due_date": "2024-06-20"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Assignment created successfully",
+  "data": {
+    "id": 9,
+    "class_id": 3,
+    "subject_id": 5,
+    "teacher_id": 7,
+    "title": "Chapter 3 Algebra Exercises",
+    "description": "Complete all exercises from pages 45-52.",
+    "due_date": "2024-06-20",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+18.2. GET /admin/assignments/index
+List all assignments.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.index
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignments fetched successfully",
+  "data": [
+    {
+      "id": 9,
+      "title": "Chapter 3 Algebra Exercises",
+      "class_id": 3,
+      "subject_id": 5,
+      "teacher_id": 7,
+      "due_date": "2024-06-20",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+18.3. GET /admin/assignments/findOne/:id
+Get a single assignment with its full submission list.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.findOne
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment fetched successfully",
+  "data": {
+    "id": 9,
+    "title": "Chapter 3 Algebra Exercises",
+    "due_date": "2024-06-20",
+    "submissions": [
+      {
+        "id": 55,
+        "student_id": 22,
+        "status": "pending",
+        "marks_obtained": null,
+        "feedback": null
+      }
+    ]
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+18.4. PUT /admin/assignments/update/:id
+Update assignment details.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.update
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "title": "Chapter 3 & 4 Algebra Exercises",
+  "due_date": "2024-06-25"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment updated successfully",
+  "data": {
+    "id": 9,
+    "title": "Chapter 3 & 4 Algebra Exercises",
+    "due_date": "2024-06-25",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+18.5. DELETE /admin/assignments/remove/:id
+Delete an assignment. Cascades to all submission records.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.remove
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+18.6. PUT /admin/assignments/submissions/update/:submissionId
+Grade or update a student's submission.
+
+Guard:        AdminJwtAuthGuard | Permission: assignments.gradeSubmission
+Path Params:  submissionId (number) — the submission record's ID
+Query Params: None
+
+Request Body:
+{
+  "status": "graded",
+  "marks_obtained": 18.5,
+  "feedback": "Good work, but show all steps clearly."
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Submission updated successfully",
+  "data": {
+    "id": 55,
+    "student_id": 22,
+    "assignment_id": 9,
+    "status": "graded",
+    "marks_obtained": 18.5,
+    "feedback": "Good work, but show all steps clearly."
+  }
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "status must be one of: pending, submitted, late, graded" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — insufficient permissions" }
+  404: { "statusCode": 404, "message": "Submission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 19: ADMIN — EXAMS & RESULTS
+================================================================================
+
+Base path: /admin/exams
+Controller: ExamController
+Guard: AdminJwtAuthGuard (no PermissionsGuard — all routes use JWT only)
+Note: Exam type enum values: midterm | final | quiz | unit_test
+      Result status enum values: pending | pass | fail | absent
+
+────────────────────────────────────────────────────────────────────────────────
+19.1. POST /admin/exams/store
+Create an exam. Auto-generates a pending ExamResult row for every student
+currently enrolled in the given class.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "title": "Mid-Term Mathematics",
+  "exam_type": "midterm",
+  "class_id": 3,
+  "subject_id": 5,
+  "exam_date": "2024-07-15",
+  "start_time": "09:00",
+  "end_time": "11:00",
+  "total_marks": 100,
+  "description": "Covers chapters 1 through 5."
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Exam created successfully",
+  "data": {
+    "id": 6,
+    "title": "Mid-Term Mathematics",
+    "exam_type": "midterm",
+    "class_id": 3,
+    "subject_id": 5,
+    "exam_date": "2024-07-15",
+    "start_time": "09:00",
+    "end_time": "11:00",
+    "total_marks": 100,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  400: { "statusCode": 400, "message": "exam_type must be one of: midterm, final, quiz, unit_test" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.2. GET /admin/exams/index
+List all exams with class name and subject name, ordered by exam_date ASC.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Exams fetched successfully",
+  "data": [
+    {
+      "id": 6,
+      "title": "Mid-Term Mathematics",
+      "exam_type": "midterm",
+      "class_name": "Grade 5 - A",
+      "subject_name": "Mathematics",
+      "exam_date": "2024-07-15",
+      "total_marks": 100,
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.3. GET /admin/exams/findOne/:id
+Get a single exam with its full result list (student name, status, marks).
+
+Guard:        AdminJwtAuthGuard
+Path Params:  id (number) — the exam's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Exam fetched successfully",
+  "data": {
+    "id": 6,
+    "title": "Mid-Term Mathematics",
+    "exam_type": "midterm",
+    "exam_date": "2024-07-15",
+    "total_marks": 100,
+    "results": [
+      {
+        "id": 201,
+        "student_id": 22,
+        "student_name": "Ali Hassan",
+        "marks_obtained": null,
+        "percentage": null,
+        "status": "pending",
+        "remarks": null
+      }
+    ]
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Exam not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.4. PUT /admin/exams/update/:id
+Update exam details. Re-validates class/subject FKs only when changed.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  id (number) — the exam's ID
+Query Params: None
+
+Request Body:
+{
+  "title": "Mid-Term Mathematics (Revised)",
+  "exam_date": "2024-07-17",
+  "total_marks": 100
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Exam updated successfully",
+  "data": {
+    "id": 6,
+    "title": "Mid-Term Mathematics (Revised)",
+    "exam_date": "2024-07-17",
+    "total_marks": 100,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Exam not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.5. GET /admin/exams/toggleStatus/:id
+Toggle exam active/inactive status (1 ↔ 0).
+
+Guard:        AdminJwtAuthGuard
+Path Params:  id (number) — the exam's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Exam status updated",
+  "data": { "id": 6, "status": 0 }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Exam not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.6. DELETE /admin/exams/remove/:id
+Delete an exam. Cascades to all ExamResult rows.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  id (number) — the exam's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Exam deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Exam not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.7. PUT /admin/exams/results/update/:resultId
+Enter or correct a student's exam result.
+Percentage is auto-calculated from marks_obtained / total_marks.
+Pass/fail is auto-derived from marks if status is not explicitly provided.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  resultId (number) — the exam result record's ID
+Query Params: None
+
+Request Body:
+{
+  "marks_obtained": 78,
+  "status": "pass",
+  "remarks": "Well done!"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Result updated successfully",
+  "data": {
+    "id": 201,
+    "exam_id": 6,
+    "student_id": 22,
+    "marks_obtained": 78,
+    "percentage": 78.00,
+    "status": "pass",
+    "remarks": "Well done!"
+  }
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "status must be one of: pending, pass, fail, absent" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Result not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.8. GET /admin/exams/results/class/:class_id
+Retrieve all exams and their results for a specific class.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  class_id (number) — the class's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Class exam results fetched successfully",
+  "data": [
+    {
+      "exam_id": 6,
+      "exam_title": "Mid-Term Mathematics",
+      "results": [
+        { "student_id": 22, "student_name": "Ali Hassan", "marks_obtained": 78, "percentage": 78.00, "status": "pass" }
+      ]
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Class not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+19.9. GET /admin/exams/results/student/:student_id
+Retrieve full exam result history for a single student across all exams.
+
+Guard:        AdminJwtAuthGuard
+Path Params:  student_id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Student exam results fetched successfully",
+  "data": [
+    {
+      "exam_id": 6,
+      "exam_title": "Mid-Term Mathematics",
+      "exam_date": "2024-07-15",
+      "marks_obtained": 78,
+      "percentage": 78.00,
+      "status": "pass",
+      "remarks": "Well done!"
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 20: TEACHER — AUTHENTICATION
+================================================================================
+
+IMPORTANT: Teachers use the SAME /user/login endpoint as parents.
+The system differentiates between the two by the roles assigned to the
+User account. A teacher must have the "teacher" role assigned via
+POST /admin/roles-assigning-user/store.
+
+Base path: /user
+Controller: UserAuthController
+
+────────────────────────────────────────────────────────────────────────────────
+20.1. POST /user/login
+Log in as a teacher (or parent) and receive a JWT access token.
+
+Guard:        None — public route
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "email": "bilal.ahmed@school.com",
+  "password": "Teacher@123"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": 10,
+      "name": "Mr. Bilal Ahmed",
+      "email": "bilal.ahmed@school.com",
+      "roles": ["teacher"]
+    }
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Invalid email or password" }
+  400: { "statusCode": 400, "message": ["email must be an email"] }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.2. POST /user/refresh-token
+Obtain a new access token using a valid refresh token.
+
+Guard:        None — public route
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Token refreshed",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Invalid or expired refresh token" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.3. POST /user/register
+Self-register a new user account.
+
+Guard:        None — public route
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "name": "Sarah Riaz",
+  "email": "sarah.riaz@school.com",
+  "phone": "+92-301-9876543",
+  "password": "Sarah@Pass1",
+  "confirm_password": "Sarah@Pass1",
+  "image": null
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Registration successful",
+  "data": {
+    "id": 15,
+    "name": "Sarah Riaz",
+    "email": "sarah.riaz@school.com",
+    "status": 1
+  }
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "Passwords do not match" }
+  409: { "statusCode": 409, "message": "Email already exists" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.4. GET /user/profile
+Get the authenticated user's (teacher or parent) profile.
+
+Guard:        UserJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Profile fetched successfully",
+  "data": {
+    "id": 10,
+    "name": "Mr. Bilal Ahmed",
+    "email": "bilal.ahmed@school.com",
+    "phone": "+92-333-4567890",
+    "address": null,
+    "image": null,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.5. PUT /user/update-profile
+Update the authenticated user's profile. Accepts an optional profile image.
+
+Guard:        UserJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: multipart/form-data
+  name    (optional, string) — "Bilal Ahmed (Updated)"
+  phone   (optional, string) — "+92-333-0001111"
+  address (optional, string) — "Plot 5, Gulberg III, Lahore"
+  image   (optional, file)   — updated profile photo
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Profile updated successfully",
+  "data": {
+    "id": 10,
+    "name": "Bilal Ahmed (Updated)",
+    "phone": "+92-333-0001111",
+    "address": "Plot 5, Gulberg III, Lahore",
+    "image": "uploads/1710000099000.jpg"
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.6. POST /user/change-password
+Change the authenticated user's password.
+
+Guard:        UserJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "oldPassword": "Teacher@123",
+  "newPassword": "NewTeacher@456"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Password changed successfully"
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "Old password is incorrect" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+20.7. POST /user/logout
+Invalidate the teacher/parent session / token.
+
+Guard:        UserJwtAuthGuard
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 21: TEACHER — ATTENDANCE
+================================================================================
+
+Base path: /user/teacher/attendance
+Controller: TeacherAttendanceController
+Guard: UserJwtAuthGuard + RolesGuard (role: "teacher" required)
+
+────────────────────────────────────────────────────────────────────────────────
+21.1. POST /user/teacher/attendance/mark
+Mark attendance for the teacher's own class.
+The teacher must be assigned as class_teacher_id for the requested class_id.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "class_id": 3,
+  "date": "2024-06-10",
+  "records": [
+    { "student_id": 22, "status": "present" },
+    { "student_id": 23, "status": "late"    },
+    { "student_id": 24, "status": "absent"  }
+  ]
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Attendance marked successfully",
+  "data": [
+    { "id": 110, "student_id": 22, "class_id": 3, "date": "2024-06-10", "status": "present", "marked_by_type": "teacher" },
+    { "id": 111, "student_id": 23, "class_id": 3, "date": "2024-06-10", "status": "late",    "marked_by_type": "teacher" },
+    { "id": 112, "student_id": 24, "class_id": 3, "date": "2024-06-10", "status": "absent",  "marked_by_type": "teacher" }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You are not the class teacher for this class" }
+  400: { "statusCode": 400, "message": "records must contain at least one entry" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+21.2. GET /user/teacher/attendance/my-class
+Return the SchoolClass where this teacher is assigned as class teacher,
+or a clear message if not yet assigned.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Your class fetched successfully",
+  "data": {
+    "id": 3,
+    "name": "Grade 5 - A",
+    "section": "A",
+    "class_teacher_id": 7,
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — teacher role required" }
+  404: { "statusCode": 404, "message": "No class assigned to you yet" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+21.3. GET /user/teacher/attendance/class/:class_id?date=YYYY-MM-DD
+View the attendance sheet for the teacher's own class on a given date.
+Ownership is enforced — teacher must be class_teacher_id for this class.
+Defaults to today if date query param is omitted.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  class_id (number) — must be the teacher's assigned class
+Query Params: date (optional, string, YYYY-MM-DD) — defaults to today
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Attendance fetched successfully",
+  "data": [
+    { "id": 110, "student_id": 22, "class_id": 3, "date": "2024-06-10", "status": "present", "marked_by_type": "teacher" },
+    { "id": 111, "student_id": 23, "class_id": 3, "date": "2024-06-10", "status": "late",    "marked_by_type": "teacher" }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You are not the class teacher for this class" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 22: TEACHER — ASSIGNMENTS
+================================================================================
+
+Base path: /user/teacher/assignments
+Controller: TeacherAssignmentController
+Guard: UserJwtAuthGuard + RolesGuard (role: "teacher" required)
+
+────────────────────────────────────────────────────────────────────────────────
+22.1. POST /user/teacher/assignments/store
+Create an assignment for a class the teacher is mapped to teach.
+The teacher_id in the body is ignored — always set server-side to the
+calling teacher's id.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  None
+Query Params: None
+
+Request Body:
+{
+  "class_id": 3,
+  "subject_id": 5,
+  "title": "Quadratic Equations Practice",
+  "description": "Solve the 20 problems in worksheet #7.",
+  "due_date": "2024-06-28"
+}
+
+Success Response (HTTP 201):
+{
+  "success": true,
+  "message": "Assignment created successfully",
+  "data": {
+    "id": 12,
+    "class_id": 3,
+    "subject_id": 5,
+    "teacher_id": 7,
+    "title": "Quadratic Equations Practice",
+    "description": "Solve the 20 problems in worksheet #7.",
+    "due_date": "2024-06-28",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You are not assigned to teach this class-subject" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+22.2. GET /user/teacher/assignments/index
+List all assignments created by the authenticated teacher.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignments fetched successfully",
+  "data": [
+    {
+      "id": 12,
+      "class_id": 3,
+      "subject_id": 5,
+      "title": "Quadratic Equations Practice",
+      "due_date": "2024-06-28",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — teacher role required" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+22.3. GET /user/teacher/assignments/findOne/:id
+Get a single assignment with its full submission list. Ownership enforced.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment fetched successfully",
+  "data": {
+    "id": 12,
+    "title": "Quadratic Equations Practice",
+    "due_date": "2024-06-28",
+    "submissions": [
+      { "id": 68, "student_id": 22, "status": "submitted", "marks_obtained": null, "feedback": null }
+    ]
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You do not own this assignment" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+22.4. PUT /user/teacher/assignments/update/:id
+Update title, description, or due_date of own assignment. Ownership enforced.
+class_id, subject_id, and teacher_id cannot be changed via this endpoint.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body:
+{
+  "title": "Quadratic Equations Practice (Extended)",
+  "due_date": "2024-07-01"
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment updated successfully",
+  "data": {
+    "id": 12,
+    "title": "Quadratic Equations Practice (Extended)",
+    "due_date": "2024-07-01",
+    "status": 1
+  }
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You do not own this assignment" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+22.5. DELETE /user/teacher/assignments/remove/:id
+Delete an assignment the teacher owns. Cascades to all submission rows.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  id (number) — the assignment's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Assignment deleted successfully"
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You do not own this assignment" }
+  404: { "statusCode": 404, "message": "Assignment not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+22.6. PUT /user/teacher/assignments/submissions/update/:submissionId
+Grade a student's submission. Teacher must own the parent assignment.
+
+Guard:        UserJwtAuthGuard | Role: teacher
+Path Params:  submissionId (number) — the submission record's ID
+Query Params: None
+
+Request Body:
+{
+  "status": "graded",
+  "marks_obtained": 16,
+  "feedback": "Neat work. Review question 4."
+}
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Submission graded successfully",
+  "data": {
+    "id": 68,
+    "student_id": 22,
+    "assignment_id": 12,
+    "status": "graded",
+    "marks_obtained": 16,
+    "feedback": "Neat work. Review question 4."
+  }
+}
+
+Error Responses:
+  400: { "statusCode": 400, "message": "status must be one of: pending, submitted, late, graded" }
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "You do not own the assignment for this submission" }
+  404: { "statusCode": 404, "message": "Submission not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 23: PARENT — AUTHENTICATION
+================================================================================
+
+IMPORTANT: Parents use the SAME /user/login endpoint as teachers.
+The system differentiates between the two by the roles assigned to the
+User account. A parent must have the "parent" role assigned via
+POST /admin/roles-assigning-user/store.
+
+All user authentication endpoints (login, register, profile, update-profile,
+change-password, logout, refresh-token) are shared between teachers and parents.
+See SECTION 20 for full details of each endpoint.
+
+Summary of shared endpoints:
+  POST   /user/login            — obtain access_token + refresh_token
+  POST   /user/refresh-token    — exchange refresh token for new access token
+  POST   /user/register         — self-register a new user account
+  GET    /user/profile          — get own profile
+  PUT    /user/update-profile   — update own profile (multipart/form-data)
+  POST   /user/change-password  — change own password
+  POST   /user/logout           — invalidate session
+
+
+================================================================================
+SECTION 24: PARENT — CHILDREN
+================================================================================
+
+Base path: /user/parent
+Controller: ParentPortalController
+Guard: UserJwtAuthGuard + RolesGuard (role: "parent" required)
+
+────────────────────────────────────────────────────────────────────────────────
+24.1. GET /user/parent/children
+Return all students linked to the authenticated guardian's profile.
+
+Guard:        UserJwtAuthGuard | Role: parent
+Path Params:  None
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Children fetched successfully",
+  "data": [
+    {
+      "id": 22,
+      "name": "Ali Hassan",
+      "roll_no": "GR5A-001",
+      "class_id": 3,
+      "class_name": "Grade 5 - A",
+      "gender": "male",
+      "dob": "2014-06-15",
+      "status": 1
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "Forbidden — parent role required" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 25: PARENT — CHILD ATTENDANCE
+================================================================================
+
+Base path: /user/parent
+Controller: ParentPortalController
+Guard: UserJwtAuthGuard + RolesGuard (role: "parent" required)
+
+────────────────────────────────────────────────────────────────────────────────
+25.1. GET /user/parent/children/:student_id/attendance
+Return the full attendance history for one of the guardian's children.
+Returns 403 if the student does not belong to this guardian.
+
+Guard:        UserJwtAuthGuard | Role: parent
+Path Params:  student_id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Child attendance fetched successfully",
+  "data": [
+    {
+      "id": 100,
+      "date": "2024-06-10",
+      "status": "present",
+      "class_id": 3,
+      "marked_by_type": "teacher"
+    },
+    {
+      "id": 85,
+      "date": "2024-06-09",
+      "status": "absent",
+      "class_id": 3,
+      "marked_by_type": "admin"
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "This student does not belong to your account" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+SECTION 26: PARENT — CHILD ASSIGNMENTS
+================================================================================
+
+Base path: /user/parent
+Controller: ParentPortalController
+Guard: UserJwtAuthGuard + RolesGuard (role: "parent" required)
+
+────────────────────────────────────────────────────────────────────────────────
+26.1. GET /user/parent/children/:student_id/assignments
+Return all assignment submissions for one of the guardian's children,
+including assignment title, due date, submission status, marks, and feedback.
+Returns 403 if the student does not belong to this guardian.
+
+Guard:        UserJwtAuthGuard | Role: parent
+Path Params:  student_id (number) — the student's ID
+Query Params: None
+
+Request Body: None
+
+Success Response (HTTP 200):
+{
+  "success": true,
+  "message": "Child assignments fetched successfully",
+  "data": [
+    {
+      "submission_id": 55,
+      "assignment_id": 9,
+      "assignment_title": "Chapter 3 Algebra Exercises",
+      "due_date": "2024-06-20",
+      "status": "graded",
+      "marks_obtained": 18.5,
+      "feedback": "Good work, but show all steps clearly."
+    },
+    {
+      "submission_id": 68,
+      "assignment_id": 12,
+      "assignment_title": "Quadratic Equations Practice",
+      "due_date": "2024-06-28",
+      "status": "pending",
+      "marks_obtained": null,
+      "feedback": null
+    }
+  ]
+}
+
+Error Responses:
+  401: { "statusCode": 401, "message": "Unauthorized" }
+  403: { "statusCode": 403, "message": "This student does not belong to your account" }
+  404: { "statusCode": 404, "message": "Student not found" }
+────────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+ROUTE COUNT SUMMARY
+================================================================================
+
+Section  1 — Admin Authentication          :  4 routes
+Section  2 — Admin: Admins                 :  7 routes  (store, index, active, findOne, update, remove, toggleStatus)
+Section  3 — Admin: Users                  :  6 routes  (store, index, findOne, findOneByEmail, update, toggleStatus)
+Section  4 — Admin: Roles                  :  6 routes  (store, index, show, update, toggleStatus, remove)
+Section  5 — Admin: Permissions            :  6 routes  (store, index, findOne, update, toggleStatus, remove)
+Section  6 — Admin: Role-Permissions       :  6 routes  (store, index, findOne, toggleStatus, update, remove)
+Section  7 — Admin: Assign Roles→Admins    :  6 routes  (store, index, findOne, toggleStatus, update, remove)
+Section  8 — Admin: Assign Roles→Users     :  6 routes  (store, list, findOne, update, toggleStatus, remove)
+Section  9 — Admin: Assign Perms→Admins    :  6 routes  (store, index, findOne, toggleStatus, update, remove)
+Section 10 — Admin: Assign Perms→Users     :  6 routes  (store, index, findOne, toggleStatus, update, remove)
+Section 11 — Admin: Teachers               :  6 routes  (store, index, findOne, update, toggleStatus, remove)
+Section 12 — Admin: Guardians              :  5 routes  (store, index, findOne, update, remove)
+Section 13 — Admin: Classes                :  6 routes  (store, index, findOne, update, toggleStatus, remove)
+Section 14 — Admin: Students               :  6 routes  (store, index, findOne, update, toggleStatus, remove)
+Section 15 — Admin: Subjects               :  6 routes  (store, index, findOne, update, toggleStatus, remove)
+Section 16 — Admin: Class-Subjects         :  5 routes  (store, class/:id, teacher/:id, update, remove)
+Section 17 — Admin: Attendance             :  4 routes  (mark, class/:id, student/:id, update)
+Section 18 — Admin: Assignments            :  6 routes  (store, index, findOne, update, remove, submissions/update)
+Section 19 — Admin: Exams & Results        :  9 routes  (store, index, findOne, update, toggleStatus, remove, results/update, results/class, results/student)
+Section 20 — Teacher: Authentication       :  7 routes  (login, refresh-token, register, profile, update-profile, change-password, logout)
+Section 21 — Teacher: Attendance           :  3 routes  (mark, my-class, class/:id)
+Section 22 — Teacher: Assignments          :  6 routes  (store, index, findOne, update, remove, submissions/update)
+Section 23 — Parent: Authentication        :  0 new routes (shared with Section 20)
+Section 24 — Parent: Children              :  1 route   (children)
+Section 25 — Parent: Child Attendance      :  1 route   (children/:id/attendance)
+Section 26 — Parent: Child Assignments     :  1 route   (children/:id/assignments)
+                                            ─────────
+TOTAL UNIQUE ROUTES                        : 133 routes
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
