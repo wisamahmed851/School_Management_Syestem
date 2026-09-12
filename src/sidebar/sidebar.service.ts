@@ -3,15 +3,19 @@ import { EffectivePermissionsService } from 'src/common/services/permissions.ser
 import {
   SIDEBAR_MENU,
   SidebarItem,
-  isGroup,
   SidebarLeafItem,
   SidebarGroupItem,
+  isGroup,
 } from 'src/common/config/sidebar-menu.config';
 
-/** Shape returned to the frontend — no internal "permission" metadata leaked. */
+export interface MenuAction {
+  [action: string]: boolean;
+}
+
 export interface MenuLeaf {
   label: string;
   route: string;
+  actions: MenuAction;
 }
 
 export interface MenuGroup {
@@ -21,48 +25,72 @@ export interface MenuGroup {
 
 export type MenuItem = MenuLeaf | MenuGroup;
 
+export interface MenuResult {
+  permissions: string[];
+  menu: MenuItem[];
+}
+
 @Injectable()
 export class SidebarService {
   constructor(
     private readonly effectivePermissionsService: EffectivePermissionsService,
   ) {}
 
-  async getMenuForAdmin(adminId: number): Promise<MenuItem[]> {
-    // Resolve this admin's full effective permission set
-    const granted = await this.effectivePermissionsService.getEffectivePermissions(
-      adminId,
-    );
+  async buildMenu(adminId: number): Promise<MenuResult> {
+    // Fetch the admin's full effective permission set once
+    const granted = await this.effectivePermissionsService.getEffectivePermissions(adminId);
     const grantedSet = new Set(granted);
 
-    const result: MenuItem[] = [];
+    const menu: MenuItem[] = [];
 
     for (const item of SIDEBAR_MENU) {
       if (isGroup(item)) {
-        // Filter children — keep only those whose permission is satisfied
-        const visibleChildren: MenuLeaf[] = item.children
-          .filter(
-            (child: SidebarLeafItem) =>
-              child.permission === null || grantedSet.has(child.permission),
-          )
-          .map((child: SidebarLeafItem) => ({
-            // ✅ Strip the internal "permission" key — not needed by frontend
-            label: child.label,
-            route: child.route,
-          }));
+        const visibleChildren: MenuLeaf[] = [];
 
-        // Drop the parent group entirely if no children survived
+        for (const child of item.children) {
+          const leaf = child as SidebarLeafItem;
+          const visible = this.isLeafVisible(leaf, grantedSet);
+          if (visible) {
+            visibleChildren.push(this.buildLeaf(leaf, grantedSet));
+          }
+        }
+
+        // Drop the group entirely if no children survived
         if (visibleChildren.length > 0) {
-          result.push({ label: item.label, children: visibleChildren });
+          menu.push({ label: item.label, children: visibleChildren } as MenuGroup);
         }
       } else {
         const leaf = item as SidebarLeafItem;
-        if (leaf.permission === null || grantedSet.has(leaf.permission)) {
-          // ✅ Strip the internal "permission" key
-          result.push({ label: leaf.label, route: leaf.route });
+        if (this.isLeafVisible(leaf, grantedSet)) {
+          menu.push(this.buildLeaf(leaf, grantedSet));
         }
       }
     }
 
-    return result;
+    return { permissions: granted, menu };
+  }
+
+  // ── VISIBILITY RULE ───────────────────────────────────────────────────────
+  // module: null  → always visible (Dashboard)
+  // otherwise     → visible if the admin holds ANY permission for that module
+  //                 (not restricted to .index — e.g. guardians.update is enough)
+  private isLeafVisible(leaf: SidebarLeafItem, granted: Set<string>): boolean {
+    if (leaf.module === null) return true;
+    return leaf.actions.some((action) => granted.has(`${leaf.module}.${action}`));
+  }
+
+  // ── ACTIONS OBJECT ────────────────────────────────────────────────────────
+  // For every action declared in leaf.actions, set the boolean to whether
+  // this admin actually holds that specific permission name.
+  private buildLeaf(leaf: SidebarLeafItem, granted: Set<string>): MenuLeaf {
+    const actions: MenuAction = {};
+
+    if (leaf.module !== null) {
+      for (const action of leaf.actions) {
+        actions[action] = granted.has(`${leaf.module}.${action}`);
+      }
+    }
+
+    return { label: leaf.label, route: leaf.route, actions };
   }
 }
