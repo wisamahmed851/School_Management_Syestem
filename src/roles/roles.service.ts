@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Role } from './entity/roles.entity';
 import { Repository } from 'typeorm';
 import { CreateRoleDto, UpdateRoleDto } from './dtos/role.dto';
+import { FindOptionsWhere } from 'typeorm';
 
 @Injectable()
 export class RolesService {
@@ -57,9 +58,17 @@ export class RolesService {
     }
   }
 
-  async index() {
+  async index(guard?: string) {
     try {
-      const roles = await this.roleRepo.find({ order: { id: 'ASC' } });
+      let where: FindOptionsWhere<Role> = {};
+      if (guard === 'admin' || guard === 'user') {
+        where.guard = guard;
+      }
+
+      const roles = await this.roleRepo.find({
+        where: Object.keys(where).length ? where : undefined,
+        order: { id: 'ASC' },
+      });
 
       return {
         success: true,

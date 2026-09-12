@@ -16,7 +16,7 @@ export class AdminAuthService {
     @InjectRepository(Admin)
     private adminRepo: Repository<Admin>,
     private jwtSerrvice: JwtService,
-  ) {}
+  ) { }
 
   async validateEmail(email: string, password: string) {
     try {
@@ -49,8 +49,10 @@ export class AdminAuthService {
       return {
         success: true,
         message: 'Admin has been logged in successfully',
-        access_token: token,
-        data: safeAdmin,
+        data: {
+          access_token: token,
+          admin: safeAdmin
+        },
       };
     } catch (error) {
       throw new InternalServerErrorException('Login failed');

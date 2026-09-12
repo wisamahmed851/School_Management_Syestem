@@ -123,7 +123,7 @@ Error Responses:
 ────────────────────────────────────────────────────────────────────────────────
 
 ────────────────────────────────────────────────────────────────────────────────
-14.1. GET /admin/sidebar
+14.1. GET /admin/me/menu
 Fetch the dynamic sidebar/menu structure, filtered to only the modules and items
 this admin is permitted to see (based on direct permissions and/or role-based
 permissions).
@@ -135,29 +135,266 @@ Request Body: None
 
 Success Response (HTTP 200):
 {
-  "success": true,
-  "message": "Sidebar menu fetched",
-  "data": [
-    {
-      "label": "Dashboard",
-      "route": "/dashboard"
-    },
-    {
-      "label": "User Management",
-      "children": [
-        { "label": "Admins", "route": "/admins" },
-        { "label": "Roles", "route": "/roles" }
-      ]
-    },
-    {
-      "label": "Academics",
-      "children": [
-        { "label": "Classes", "route": "/classes" },
-        { "label": "Students", "route": "/students" },
-        { "label": "Teachers", "route": "/teachers" }
-      ]
+    "success": true,
+    "message": "Menu fetched",
+    "data": {
+        "permissions": [
+            "roles.create",
+            "users.create",
+            "users.index",
+            "users.findOne",
+            "users.update",
+            "users.toggleStatus",
+            "admins.create",
+            "admins.index",
+            "admins.findOne",
+            "admins.update",
+            "admins.remove",
+            "admins.toggleStatus",
+            "roles.index",
+            "roles.findOne",
+            "roles.update",
+            "roles.toggleStatus",
+            "roles.remove",
+            "permissions.create",
+            "permissions.index",
+            "permissions.findOne",
+            "permissions.update",
+            "permissions.toggleStatus",
+            "permissions.remove",
+            "role-permissions.create",
+            "role-permissions.index",
+            "role-permissions.findOne",
+            "role-permissions.toggleStatus",
+            "role-permissions.update",
+            "role-permissions.remove",
+            "admin-roles.create",
+            "admin-roles.index",
+            "admin-roles.findOne",
+            "admin-roles.toggleStatus",
+            "admin-roles.update",
+            "admin-roles.remove",
+            "user-roles.create",
+            "user-roles.index",
+            "user-roles.findOne",
+            "user-roles.toggleStatus",
+            "user-roles.update",
+            "user-roles.remove",
+            "admin-permissions.create",
+            "admin-permissions.index",
+            "admin-permissions.findOne",
+            "admin-permissions.toggleStatus",
+            "admin-permissions.update",
+            "admin-permissions.remove",
+            "user-permissions.create",
+            "user-permissions.index",
+            "user-permissions.findOne",
+            "user-permissions.toggleStatus",
+            "user-permissions.update",
+            "user-permissions.remove",
+            "teachers.create",
+            "teachers.index",
+            "teachers.findOne",
+            "teachers.update",
+            "teachers.toggleStatus",
+            "teachers.remove",
+            "guardians.create",
+            "guardians.index",
+            "guardians.findOne",
+            "guardians.update",
+            "guardians.remove",
+            "classes.create",
+            "classes.index",
+            "classes.findOne",
+            "classes.update",
+            "classes.toggleStatus",
+            "classes.remove",
+            "students.create",
+            "students.index",
+            "students.findOne",
+            "students.update",
+            "students.toggleStatus",
+            "students.remove",
+            "subjects.create",
+            "subjects.index",
+            "subjects.findOne",
+            "subjects.update",
+            "subjects.toggleStatus",
+            "subjects.remove",
+            "class-subjects.create",
+            "class-subjects.index",
+            "class-subjects.update",
+            "class-subjects.remove",
+            "attendance.mark",
+            "attendance.index",
+            "attendance.update",
+            "assignments.create",
+            "assignments.index",
+            "assignments.findOne",
+            "assignments.update",
+            "assignments.remove",
+            "assignments.gradeSubmission"
+        ],
+        "menu": [
+            {
+                "label": "Dashboard",
+                "route": "/dashboard",
+                "actions": {}
+            },
+            {
+                "label": "User Management",
+                "children": [
+                    {
+                        "label": "Admins",
+                        "route": "/admins",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Users",
+                        "route": "/users",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true
+                        }
+                    },
+                    {
+                        "label": "Roles",
+                        "route": "/roles",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Permissions",
+                        "route": "/permissions",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    }
+                ]
+            },
+            {
+                "label": "Academics",
+                "children": [
+                    {
+                        "label": "Classes",
+                        "route": "/classes",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Subjects",
+                        "route": "/subjects",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Class-Subject-Teacher",
+                        "route": "/class-subjects",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "update": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Teachers",
+                        "route": "/teachers",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Guardians",
+                        "route": "/guardians",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "remove": true
+                        }
+                    },
+                    {
+                        "label": "Students",
+                        "route": "/students",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "toggleStatus": true,
+                            "remove": true
+                        }
+                    }
+                ]
+            },
+            {
+                "label": "Operations",
+                "children": [
+                    {
+                        "label": "Attendance",
+                        "route": "/attendance",
+                        "actions": {
+                            "mark": true,
+                            "index": true,
+                            "update": true
+                        }
+                    },
+                    {
+                        "label": "Assignments",
+                        "route": "/assignments",
+                        "actions": {
+                            "create": true,
+                            "index": true,
+                            "findOne": true,
+                            "update": true,
+                            "remove": true,
+                            "gradeSubmission": true
+                        }
+                    }
+                ]
+            }
+        ]
     }
-  ]
 }
 
 Note: The exact contents of "data" vary per admin — a menu item or entire
@@ -715,7 +952,13 @@ List all roles.
 
 Guard:        AdminJwtAuthGuard | Permission: roles.index
 Path Params:  None
-Query Params: None
+Query Params: guard (optional, string) — filter by guard value.
+              Accepted values: "admin", "user".
+              If omitted, all roles are returned (existing behavior unchanged).
+              Examples:
+                GET /admin/roles/index           → all roles
+                GET /admin/roles/index?guard=admin → only admin-guard roles
+                GET /admin/roles/index?guard=user  → only user-guard roles
 
 Request Body: None
 

@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { RolesService } from './roles.service';
@@ -30,8 +31,9 @@ export class RolesController {
   @Get('index')
   @UseGuards(PermissionsGuard)
   @RequirePermission('roles.index')
-  index() {
-    return this.rolesService.index();
+  index(@Query('guard') guard?: string) {
+    console.log(guard);
+    return this.rolesService.index(guard);
   }
 
   @Get('show/:id')
